@@ -4,6 +4,10 @@ Dependency-free UI and application feedback overlay for local development and pr
 
 ## Install
 
+Easiest method:
+Download this folder and tell your coding agent to add this to your webapp
+
+Alternatively:
 Copy this folder into your app's public/static assets directory and add these tags before `</body>`:
 
 ```html
