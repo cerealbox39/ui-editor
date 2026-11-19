@@ -264,6 +264,11 @@
     if (outline.hidden) outline.hidden = false;
     for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
     if (label !== outlineText) outlineLabel.textContent = label;
+    const labelRect = outlineLabel.getBoundingClientRect();
+    outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, document.documentElement.clientWidth - labelRect.width))}px`;
+    const above = rect.top - labelRect.height - 4, below = rect.bottom + 4;
+    const top = above >= 0 ? above : below + labelRect.height <= document.documentElement.clientHeight ? below : Math.max(0, rect.top);
+    outlineLabel.style.top = `${top}px`;
     outlineStyle = style; outlineText = label;
   }
   function hover(event) {
