@@ -216,7 +216,7 @@
     if (label !== hoverLabel) outlineLabel.textContent = label;
     const labelRect = outlineLabel.getBoundingClientRect();
     outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, window.innerWidth - labelRect.width))}px`;
-    outlineLabel.style.top = `${rect.top >= labelRect.height + 4 ? rect.top - labelRect.height - 4 : rect.bottom + 4}px`;
+    outlineLabel.style.top = `${rect.top >= labelRect.height + 4 ? rect.top - labelRect.height - 4 : rect.bottom + labelRect.height + 4 <= window.innerHeight ? rect.bottom + 4 : Math.max(0, rect.top)}px`;
     hoverStyle = style; hoverLabel = label;
   }
   function hover(event) {
