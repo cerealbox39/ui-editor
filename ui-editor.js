@@ -7,6 +7,7 @@
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
+  const drafts = new Map();
 
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -57,7 +58,7 @@
   make('p', 'hint', 'Point to any UI, data value, or feature. Esc exits.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
-  button('Clear all', controls, () => { pins = []; closeEditor(); changed(); });
+  button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
   const autoLabel = make('label', 'auto', undefined, panel);
   const auto = make('input', 'checkbox', undefined, autoLabel); auto.type = 'checkbox'; auto.checked = true;
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
@@ -77,9 +78,10 @@
   const intentButtons = uiActions.map(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
   const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
-  const save = button('Save', actions, () => {}); save.type = 'submit';
+  const save = button('Save', actions, () => {}); save.type = 'submit'; save.classList.add('pin-button-primary');
   button('Cancel', actions, closeEditor);
   const remove = button('Delete', actions, () => { pins = pins.filter(pin => pin.id !== editing); closeEditor(); changed(); });
+  remove.classList.add('pin-button-danger');
   document.body.append(root);
 
   function refreshFields() {
@@ -193,36 +195,53 @@
     const placement = placements.filter(option => option.fit).sort((left, right) => right.room - left.room)[0] || placements.sort((left, right) => right.room - left.room)[0];
     editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`; editor.style.maxHeight = `${Math.max(280, placement.maxHeight)}px`;
   }
+  function savedPinTarget(selector) {
+    if (!selector) return null;
+    try {
+      const matches = document.querySelectorAll(selector);
+      if (matches.length === 1 && !root.contains(matches[0])) return matches[0];
+    } catch (_) { /* A stored selector may be invalid. */ }
+    return null;
+  }
   function openEditor(element, pin) {
-    target = element; editing = pin?.id || null; issueType = issueTypes.includes(pin?.issueType) ? pin.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(pin?.uiAction) ? pin.uiAction : '';
-    comment.control.value = pin?.comment || ''; remove.hidden = !pin;
+    resetHover();
+    const key = pin?.id || element, values = drafts.get(key) || pin;
+    drafts.delete(key);
+    target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(values?.uiAction) ? values.uiAction : '';
+    comment.control.value = values?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
+    showOutline(element || savedPinTarget(pin?.element.selector));
   }
-  let hoverFrame = null, hoverTarget = null, hoverLabel = null, hoverStyle = {};
+  let hoverFrame = null, hoverTarget = null, outlineText = null, outlineStyle = {};
   function resetHover() {
     if (hoverFrame !== null) cancelAnimationFrame(hoverFrame);
-    hoverFrame = null; hoverTarget = null; hoverLabel = null; hoverStyle = {}; outline.hidden = true;
+    hoverFrame = null; hoverTarget = null;
+    if (!outline.hidden) outline.hidden = true;
   }
   function renderHover() {
     hoverFrame = null;
     const element = hoverTarget; hoverTarget = null;
-    if (!active || !editor.hidden || !element?.isConnected) return;
-    const rect = element.getBoundingClientRect();
+    if (active && editor.hidden) showOutline(element);
+  }
+  function showOutline(element) {
+    const rect = element?.isConnected ? element.getBoundingClientRect() : null;
+    if (!rect?.width || !rect.height) { resetHover(); return; }
     const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
     const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
     if (outline.hidden) outline.hidden = false;
-    for (const key of Object.keys(style)) { if (style[key] !== hoverStyle[key]) outline.style[key] = style[key]; }
-    if (label !== hoverLabel) outlineLabel.textContent = label;
+    for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
+    if (label !== outlineText) outlineLabel.textContent = label;
     const labelRect = outlineLabel.getBoundingClientRect();
     outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, document.documentElement.clientWidth - labelRect.width))}px`;
     const above = rect.top - labelRect.height - 4, below = rect.bottom + 4;
     const top = above >= 0 ? above : below + labelRect.height <= document.documentElement.clientHeight ? below : Math.max(0, rect.top);
     outlineLabel.style.top = `${top}px`;
-    hoverStyle = style; hoverLabel = label;
+    outlineStyle = style; outlineText = label;
   }
   function hover(event) {
-    if (!active || !editor.hidden || root.contains(event.target) || !(event.target instanceof Element)) return;
+    if (!active || !editor.hidden) return;
+    if (!(event.target instanceof Element) || root.contains(event.target)) { resetHover(); return; }
     hoverTarget = event.target;
     if (hoverFrame === null) hoverFrame = requestAnimationFrame(renderHover);
   }
@@ -232,6 +251,6 @@
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
-  document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); setActive(false); } });
+  document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
   window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', resetHover); render();
 })();
