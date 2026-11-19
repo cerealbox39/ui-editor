@@ -52,7 +52,6 @@
   const toggle = button('◎ App feedback', root, () => setActive(!active));
   toggle.classList.add('pin-toggle'); toggle.setAttribute('aria-pressed', 'false');
   const markerLayer = make('div', 'marker-layer');
-  markerLayer.setAttribute('aria-hidden', 'true');
   const savedMarkers = new Map();
   let markerFrame = null;
   const outline = make('div', 'outline'); outline.hidden = true;
@@ -170,15 +169,37 @@
     render(); if (autoCopy) copyAll();
   }
   const listItems = new Map();
+  let highlightedCard = null;
+  function clearCardHighlight() {
+    highlightedCard?.classList.remove('pin-card-highlighted');
+    highlightedCard = null;
+  }
+  function highlightCard(pin) {
+    const card = listItems.get(pin)?.firstChild;
+    if (!card) return;
+    clearCardHighlight();
+    highlightedCard = card;
+    card.classList.add('pin-card-highlighted');
+    card.scrollIntoView({ block: 'nearest', inline: 'nearest', behavior: 'instant' });
+    card.focus({ preventScroll: true });
+  }
+  function openSavedNote(pin) {
+    const element = savedPinTarget(pin.element.selector);
+    const rect = element?.getBoundingClientRect();
+    const offscreen = rect && (rect.bottom <= 0 || rect.top >= document.documentElement.clientHeight);
+    element?.scrollIntoView({ block: offscreen ? 'center' : 'nearest', inline: 'nearest', behavior: 'instant' });
+    openEditor(element, pin);
+  }
   function render() {
     const current = new Set(pins);
     listItems.forEach((item, pin) => { if (!current.has(pin)) { item.remove(); listItems.delete(pin); } });
+    if (highlightedCard && !highlightedCard.isConnected) clearCardHighlight();
     if (pins.length) list.querySelector('.pin-empty')?.remove();
     pins.forEach((pin, index) => {
       let item = listItems.get(pin);
       if (!item) {
         item = make('li', 'item', undefined, list);
-        button('', item, () => openEditor(null, pin)); listItems.set(pin, item);
+        button('', item, () => openSavedNote(pin)); listItems.set(pin, item);
         const card = item.firstChild; card.classList.add('pin-card');
         ['number', 'tags', 'comment'].forEach(part => make('span', `card-${part}`, undefined, card));
         ['type', 'action'].forEach(part => make('span', `card-${part}`, undefined, card.children[1]));
@@ -259,7 +280,10 @@
       const element = savedPinTarget(pin.element.selector);
       if (!element) return;
       if (!savedMarkers.has(element)) savedMarkers.set(element, make('div', 'marker-group', undefined, markerLayer));
-      make('span', 'marker-dot', String(index + 1), savedMarkers.get(element));
+      const dot = make('button', 'marker-dot', String(index + 1), savedMarkers.get(element));
+      dot.type = 'button';
+      dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
+      dot.addEventListener('click', () => highlightCard(pin));
     });
     positionSavedMarkers();
   }
@@ -280,13 +304,14 @@
   }
   function openEditor(element, pin) {
     resetHover();
+    clearCardHighlight();
     const key = pin?.id || element, values = drafts.get(key) || pin;
     drafts.delete(key);
     target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(values?.uiAction) ? values.uiAction : '';
     comment.control.value = values?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
-    showOutline(element || savedPinTarget(pin?.element.selector));
+    showOutline(element);
   }
   let hoverFrame = null, hoverTarget = null, outlineText = null, outlineStyle = {};
   function resetHover() {
@@ -301,9 +326,10 @@
   }
   function showOutline(element) {
     const rect = element?.isConnected ? element.getBoundingClientRect() : null;
-    if (!rect?.width || !rect.height) { resetHover(); return; }
+    if (!rect?.width || !rect.height || rect.right <= 0 || rect.bottom <= 0 || rect.left >= document.documentElement.clientWidth || rect.top >= document.documentElement.clientHeight) { resetHover(); return; }
     const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
     const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
+    outline.classList.toggle('pin-outline-selected', Boolean(editing));
     if (outline.hidden) outline.hidden = false;
     for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
     if (label !== outlineText) outlineLabel.textContent = label;
@@ -323,12 +349,19 @@
   function intercept(event) { if (!active || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
   function setActive(value) {
     active = value; panel.hidden = !value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
+    clearCardHighlight();
     renderSavedMarkers();
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
   document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
-  window.addEventListener('scroll', () => { resetHover(); scheduleMarkerPosition(); }, true);
-  window.addEventListener('resize', () => { resetHover(); scheduleMarkerPosition(); if (!editor.hidden) placeEditor(target?.getBoundingClientRect()); });
+  window.addEventListener('scroll', () => {
+    if (editor.hidden) resetHover(); else showOutline(target);
+    scheduleMarkerPosition();
+  }, true);
+  window.addEventListener('resize', () => {
+    resetHover(); scheduleMarkerPosition();
+    if (!editor.hidden) { placeEditor(target?.getBoundingClientRect()); showOutline(target); }
+  });
   render();
 })();
