@@ -200,9 +200,19 @@
       if (!item) {
         item = make('li', 'item', undefined, list);
         button('', item, () => openSavedNote(pin)); listItems.set(pin, item);
+        const card = item.firstChild; card.classList.add('pin-card');
+        ['number', 'tags', 'comment'].forEach(part => make('span', `card-${part}`, undefined, card));
+        ['type', 'action'].forEach(part => make('span', `card-${part}`, undefined, card.children[1]));
       }
-      const label = `${index + 1}. ${elementLabel(pin.element)} · ${pin.issueType}\n${short(pin.comment)}`;
-      if (item.firstChild.textContent !== label) item.firstChild.textContent = label;
+      const card = item.firstChild, [number, tags, text] = card.children, [type, action] = tags.children;
+      const request = short(pin.comment);
+      const parts = { number: String(index + 1), type: pin.issueType, action: pin.uiAction || '', text: request || 'No comment' };
+      [[number, parts.number], [type, parts.type], [action, parts.action], [text, parts.text]].forEach(([element, content]) => { if (element.textContent !== content) element.textContent = content; });
+      const label = `${parts.number}. ${[parts.type, parts.action].filter(Boolean).join(', ')}: ${parts.text}`;
+      if (card.getAttribute('aria-label') !== label) card.setAttribute('aria-label', label);
+      if (card.dataset.type !== pin.issueType) card.dataset.type = pin.issueType;
+      if (action.hidden === Boolean(pin.uiAction)) action.hidden = !pin.uiAction;
+      text.classList.toggle('pin-card-comment-empty', !request);
     });
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
     renderSavedMarkers();
