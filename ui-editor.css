@@ -4,6 +4,10 @@
 #pin-root .pin-button { appearance: none; cursor: pointer; background: #fff; color: #253047; border: 1px solid #c8d0df; padding: 7px 12px; border-radius: 7px; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
 #pin-root .pin-button:hover { background: #edf2ff; }
 #pin-root .pin-button:focus-visible, #pin-root .pin-comment:focus-visible { outline: 3px solid #5478ff; outline-offset: 2px; }
+#pin-root .pin-button-primary { background: #344ee7; border-color: #344ee7; color: #fff; }
+#pin-root .pin-button-primary:hover { background: #293fc2; border-color: #293fc2; }
+#pin-root .pin-button-danger { color: #b42332; border-color: #b42332; margin-left: auto; }
+#pin-root .pin-button-danger:hover { background: #fff0f1; }
 #pin-root .pin-button[aria-pressed="true"] { background: #344ee7; color: #fff; }
 #pin-root .pin-toggle, #pin-root .pin-toggle[aria-pressed="true"] { position: fixed; bottom: 20px; right: 20px; z-index: 2147483647; border-color: #344ee7 !important; box-shadow: 0 4px 20px #17264c33; background: #344ee7 !important; color: #fff !important; }
 #pin-root .pin-toggle:hover { border-color: #5268ff !important; background: #5268ff !important; }
