@@ -10,8 +10,11 @@
   --pin-glass: rgba(255, 255, 255, .55);
   --pin-sheen: linear-gradient(135deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .08));
   --pin-border: rgba(255, 255, 255, .65);
-  --pin-button-border: rgba(0, 113, 227, .85);
-  --pin-button-border-hover: #0062c4;
+  --pin-button-border: rgba(60, 60, 67, .23);
+  --pin-button-fill: rgba(255, 255, 255, .8);
+  --pin-button-hover: rgba(255, 255, 255, .94);
+  --pin-button-sheen: linear-gradient(to bottom, rgba(255, 255, 255, .4), rgba(255, 255, 255, .04));
+  --pin-button-shadow: 0 2px 5px rgba(30, 30, 40, .07);
   --pin-fill: rgba(255, 255, 255, .38);
   --pin-hover: rgba(255, 255, 255, .65);
   --pin-line: rgba(60, 60, 67, .12);
@@ -29,8 +32,8 @@
   transition: background 150ms ease, box-shadow 150ms ease;
 }
 #pin-root .pin-button:hover { background: var(--pin-hover); }
-#pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])) { border-color: var(--pin-button-border); }
-#pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])):hover { border-color: var(--pin-button-border-hover); }
+#pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])) { border-color: var(--pin-button-border); background: var(--pin-button-sheen), var(--pin-button-fill); box-shadow: var(--pin-button-shadow); }
+#pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])):hover { background: var(--pin-button-sheen), var(--pin-button-hover); }
 #pin-root .pin-button:focus-visible, #pin-root .pin-comment:focus, #pin-root .pin-marker-dot:focus-visible {
   outline: 2px solid var(--pin-accent); outline-offset: 2px; box-shadow: 0 0 0 4px var(--pin-ring);
 }
@@ -102,7 +105,10 @@
     --pin-glass: rgba(30, 30, 32, .55);
     --pin-sheen: linear-gradient(135deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .01));
     --pin-border: rgba(255, 255, 255, .18); --pin-fill: rgba(255, 255, 255, .07);
-    --pin-button-border: rgba(112, 181, 255, .85); --pin-button-border-hover: #70b5ff;
+    --pin-button-border: rgba(255, 255, 255, .27);
+    --pin-button-fill: rgba(66, 66, 70, .82); --pin-button-hover: rgba(78, 78, 82, .94);
+    --pin-button-sheen: linear-gradient(to bottom, rgba(255, 255, 255, .1), rgba(255, 255, 255, .01));
+    --pin-button-shadow: 0 2px 5px rgba(0, 0, 0, .15);
     --pin-hover: rgba(255, 255, 255, .13); --pin-line: rgba(255, 255, 255, .12);
     --pin-shadow: 0 24px 64px rgba(0, 0, 0, .35), 0 4px 16px rgba(0, 0, 0, .15);
     color-scheme: dark;
