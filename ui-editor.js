@@ -208,8 +208,14 @@
           { ...region, top: Math.max(region.top, obstacle.bottom) },
         ].filter(box => box.right > box.left && box.bottom > box.top);
       }), [viewport]);
-      let regions = freeRegions(rect ? [...obstacles, expand(rect)] : obstacles);
-      if (!regions.length) regions = freeRegions(obstacles);
+      const targetRegions = rect ? freeRegions([...obstacles, expand(rect)]) : [];
+      const obstacleRegions = freeRegions(obstacles);
+      const usable = region => region.bottom - region.top >= Math.min(280, height);
+      const fitsForm = region => {
+        editor.style.width = `${Math.min(width, region.right - region.left)}px`;
+        return region.bottom - region.top >= editor.scrollHeight + (editor.offsetHeight - editor.clientHeight);
+      };
+      const regions = [targetRegions.filter(fitsForm), obstacleRegions.filter(fitsForm), targetRegions.filter(usable), obstacleRegions.filter(usable), obstacleRegions].find(options => options.length);
       const region = regions.sort((a, b) => (b.right - b.left) * (b.bottom - b.top) - (a.right - a.left) * (a.bottom - a.top))[0];
       if (!region) return;
       const availableWidth = Math.min(width, region.right - region.left);
