@@ -102,7 +102,8 @@
     closeEditor(); changed();
   });
 
-  function count(selector) { try { return document.querySelectorAll(selector).length; } catch (_) { return 0; } }
+  function pageMatches(selector) { return [...document.querySelectorAll(selector)].filter(element => !root.contains(element)); }
+  function count(selector) { try { return pageMatches(selector).length; } catch (_) { return 0; } }
   function selectorFor(element) {
     if (element.id) { const selector = `#${CSS.escape(element.id)}`; if (count(selector) === 1) return { selector, selectorConfidence: 'high' }; }
     if (element.hasAttribute('data-testid')) { const selector = `[data-testid="${CSS.escape(element.getAttribute('data-testid'))}"]`; if (count(selector) === 1) return { selector, selectorConfidence: 'high' }; }
@@ -235,8 +236,8 @@
   function savedPinTarget(selector) {
     if (!selector) return null;
     try {
-      const matches = document.querySelectorAll(selector);
-      if (matches.length === 1 && !root.contains(matches[0])) return matches[0];
+      const matches = pageMatches(selector);
+      if (matches.length === 1) return matches[0];
     } catch (_) { /* A stored selector may be invalid. */ }
     return null;
   }
