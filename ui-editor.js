@@ -168,10 +168,21 @@
     try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
     render(); if (autoCopy) copyAll();
   }
+  const listItems = new Map();
   function render() {
-    list.replaceChildren();
-    pins.forEach((pin, index) => { const item = make('li', 'item', undefined, list); button(`${index + 1}. ${elementLabel(pin.element)} · ${pin.issueType}\n${short(pin.comment)}`, item, () => openEditor(null, pin)); });
-    if (!pins.length) make('li', 'empty', 'No feedback yet', list);
+    const current = new Set(pins);
+    listItems.forEach((item, pin) => { if (!current.has(pin)) { item.remove(); listItems.delete(pin); } });
+    if (pins.length) list.querySelector('.pin-empty')?.remove();
+    pins.forEach((pin, index) => {
+      let item = listItems.get(pin);
+      if (!item) {
+        item = make('li', 'item', undefined, list);
+        button('', item, () => openEditor(null, pin)); listItems.set(pin, item);
+      }
+      const label = `${index + 1}. ${elementLabel(pin.element)} · ${pin.issueType}\n${short(pin.comment)}`;
+      if (item.firstChild.textContent !== label) item.firstChild.textContent = label;
+    });
+    if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
   }
   function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
