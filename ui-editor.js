@@ -51,6 +51,10 @@
 
   const toggle = button('◎ App feedback', root, () => setActive(!active));
   toggle.classList.add('pin-toggle'); toggle.setAttribute('aria-pressed', 'false');
+  const markerLayer = make('div', 'marker-layer');
+  markerLayer.setAttribute('aria-hidden', 'true');
+  const savedMarkers = new Map();
+  let markerFrame = null;
   const outline = make('div', 'outline'); outline.hidden = true;
   const outlineLabel = make('div', 'label', '', outline);
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
@@ -98,7 +102,8 @@
     closeEditor(); changed();
   });
 
-  function count(selector) { try { return document.querySelectorAll(selector).length; } catch (_) { return 0; } }
+  function pageMatches(selector) { return [...document.querySelectorAll(selector)].filter(element => !root.contains(element)); }
+  function count(selector) { try { return pageMatches(selector).length; } catch (_) { return 0; } }
   function selectorFor(element) {
     if (element.id) { const selector = `#${CSS.escape(element.id)}`; if (count(selector) === 1) return { selector, selectorConfidence: 'high' }; }
     if (element.hasAttribute('data-testid')) { const selector = `[data-testid="${CSS.escape(element.getAttribute('data-testid'))}"]`; if (count(selector) === 1) return { selector, selectorConfidence: 'high' }; }
@@ -189,6 +194,7 @@
       text.classList.toggle('pin-card-comment-empty', !request);
     });
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
+    renderSavedMarkers();
   }
   function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
@@ -240,10 +246,37 @@
   function savedPinTarget(selector) {
     if (!selector) return null;
     try {
-      const matches = document.querySelectorAll(selector);
-      if (matches.length === 1 && !root.contains(matches[0])) return matches[0];
+      const matches = pageMatches(selector);
+      if (matches.length === 1) return matches[0];
     } catch (_) { /* A stored selector may be invalid. */ }
     return null;
+  }
+  function renderSavedMarkers() {
+    markerLayer.replaceChildren();
+    savedMarkers.clear();
+    if (!active) return;
+    pins.forEach((pin, index) => {
+      const element = savedPinTarget(pin.element.selector);
+      if (!element) return;
+      if (!savedMarkers.has(element)) savedMarkers.set(element, make('div', 'marker-group', undefined, markerLayer));
+      make('span', 'marker-dot', String(index + 1), savedMarkers.get(element));
+    });
+    positionSavedMarkers();
+  }
+  function positionSavedMarkers() {
+    const { clientWidth: width, clientHeight: height } = document.documentElement;
+    savedMarkers.forEach((marker, element) => {
+      const rect = element.getBoundingClientRect();
+      marker.hidden = !rect.width || !rect.height || rect.right <= 0 || rect.bottom <= 0 || rect.left >= width || rect.top >= height || getComputedStyle(element).visibility !== 'visible';
+      if (marker.hidden) return;
+      const markerWidth = marker.offsetWidth, markerHeight = marker.offsetHeight;
+      marker.style.left = `${Math.max(2, Math.min(rect.right + 9 - markerWidth, width - markerWidth - 2))}px`;
+      marker.style.top = `${Math.max(2, Math.min(rect.top - markerHeight / 2, height - markerHeight - 2))}px`;
+    });
+  }
+  function scheduleMarkerPosition() {
+    if (!savedMarkers.size || markerFrame !== null) return;
+    markerFrame = requestAnimationFrame(() => { markerFrame = null; positionSavedMarkers(); });
   }
   function openEditor(element, pin) {
     resetHover();
@@ -290,9 +323,12 @@
   function intercept(event) { if (!active || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
   function setActive(value) {
     active = value; panel.hidden = !value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
+    renderSavedMarkers();
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
   document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
-  window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', () => { resetHover(); if (!editor.hidden) placeEditor(target?.getBoundingClientRect()); }); render();
+  window.addEventListener('scroll', () => { resetHover(); scheduleMarkerPosition(); }, true);
+  window.addEventListener('resize', () => { resetHover(); scheduleMarkerPosition(); if (!editor.hidden) placeEditor(target?.getBoundingClientRect()); });
+  render();
 })();
