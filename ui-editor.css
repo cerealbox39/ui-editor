@@ -31,7 +31,8 @@
 #pin-root .pin-list { list-style: none; padding: 0; margin: 12px 0; }
 #pin-root .pin-item { margin: 6px 0; }
 #pin-root .pin-item .pin-button { width: 100%; }
-#pin-root .pin-item .pin-card-highlighted { border-color: #5268ff; background: #edf2ff; box-shadow: inset 3px 0 #5268ff; }
+#pin-root .pin-item .pin-card-highlighted { border-color: #5268ff; background: #edf2ff; }
+#pin-root .pin-item .pin-card-highlighted:focus-visible { border-color: #293fc2; outline: none; }
 #pin-root .pin-empty { color: #637086; padding: 12px 0; }
 #pin-root .pin-marker-layer { position: fixed; inset: 0; z-index: 2147483643; overflow: hidden; pointer-events: none; }
 #pin-root .pin-marker-group { position: absolute; display: flex; gap: 3px; }
