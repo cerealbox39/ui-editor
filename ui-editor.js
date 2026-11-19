@@ -158,7 +158,7 @@
     const output = markdown(), total = pins.length, sequence = ++copySequence;
     const write = () => navigator.clipboard?.writeText ? navigator.clipboard.writeText(output) : Promise.reject(new Error('Clipboard API unavailable'));
     const promise = write();
-    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) status.textContent = `Clipboard updated — ${total} items ready to paste`; }).catch(error => { if (sequence === copySequence) status.textContent = 'Clipboard update failed — use Copy all'; console.warn('App feedback overlay: clipboard update failed', error); });
+    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) status.textContent = `Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`; }).catch(error => { if (sequence === copySequence) status.textContent = 'Clipboard update failed — use Copy all'; console.warn('App feedback overlay: clipboard update failed', error); });
   }
   function changed() {
     try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
