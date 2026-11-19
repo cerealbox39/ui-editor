@@ -162,12 +162,23 @@
     try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
     render(); if (autoCopy) copyAll();
   }
+  const listItems = new Map();
   function render() {
-    list.replaceChildren();
-    pins.forEach((pin, index) => { const item = make('li', 'item', undefined, list); button(`${index + 1}. ${elementLabel(pin.element)} · ${pin.issueType}\n${short(pin.comment)}`, item, () => openEditor(null, pin)); });
-    if (!pins.length) make('li', 'empty', 'No feedback yet', list);
+    const current = new Set(pins);
+    listItems.forEach((item, pin) => { if (!current.has(pin)) { item.remove(); listItems.delete(pin); } });
+    if (pins.length) list.querySelector('.pin-empty')?.remove();
+    pins.forEach((pin, index) => {
+      let item = listItems.get(pin);
+      if (!item) {
+        item = make('li', 'item', undefined, list);
+        button('', item, () => openEditor(null, pin)); listItems.set(pin, item);
+      }
+      const label = `${index + 1}. ${elementLabel(pin.element)} · ${pin.issueType}\n${short(pin.comment)}`;
+      if (item.firstChild.textContent !== label) item.firstChild.textContent = label;
+    });
+    if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
   }
-  function closeEditor() { editor.hidden = true; target = null; editing = null; outline.hidden = true; }
+  function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
     const edge = 12, viewportGap = 8, width = editor.getBoundingClientRect().width;
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
@@ -188,9 +199,27 @@
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
   }
+  let hoverFrame = null, hoverTarget = null, hoverLabel = null, hoverStyle = {};
+  function resetHover() {
+    if (hoverFrame !== null) cancelAnimationFrame(hoverFrame);
+    hoverFrame = null; hoverTarget = null; hoverLabel = null; hoverStyle = {}; outline.hidden = true;
+  }
+  function renderHover() {
+    hoverFrame = null;
+    const element = hoverTarget; hoverTarget = null;
+    if (!active || !editor.hidden || !element?.isConnected) return;
+    const rect = element.getBoundingClientRect();
+    const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
+    const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
+    if (outline.hidden) outline.hidden = false;
+    for (const key of Object.keys(style)) { if (style[key] !== hoverStyle[key]) outline.style[key] = style[key]; }
+    if (label !== hoverLabel) outlineLabel.textContent = label;
+    hoverStyle = style; hoverLabel = label;
+  }
   function hover(event) {
     if (!active || !editor.hidden || root.contains(event.target) || !(event.target instanceof Element)) return;
-    const rect = event.target.getBoundingClientRect(); outline.hidden = false; Object.assign(outline.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` }); outlineLabel.textContent = `${event.target.localName}${event.target.classList[0] ? '.' + event.target.classList[0] : ' ' + short(event.target.textContent)}`;
+    hoverTarget = event.target;
+    if (hoverFrame === null) hoverFrame = requestAnimationFrame(renderHover);
   }
   function intercept(event) { if (!active || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
   function setActive(value) {
@@ -199,5 +228,5 @@
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
   document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); setActive(false); } });
-  window.addEventListener('scroll', () => { outline.hidden = true; }, true); window.addEventListener('resize', () => { outline.hidden = true; }); render();
+  window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', resetHover); render();
 })();
