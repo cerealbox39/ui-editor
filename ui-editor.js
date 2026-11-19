@@ -7,6 +7,7 @@
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
+  const drafts = new Map();
 
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -194,8 +195,10 @@
     editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`; editor.style.maxHeight = `${Math.max(280, placement.maxHeight)}px`;
   }
   function openEditor(element, pin) {
-    target = element; editing = pin?.id || null; issueType = issueTypes.includes(pin?.issueType) ? pin.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(pin?.uiAction) ? pin.uiAction : '';
-    comment.control.value = pin?.comment || ''; remove.hidden = !pin;
+    const key = pin?.id || element, values = drafts.get(key) || pin;
+    drafts.delete(key);
+    target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(values?.uiAction) ? values.uiAction : '';
+    comment.control.value = values?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
   }
@@ -227,6 +230,6 @@
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
-  document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); setActive(false); } });
+  document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
   window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', resetHover); render();
 })();
