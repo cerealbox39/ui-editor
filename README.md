@@ -36,7 +36,7 @@ This version supports:
 - A single comments field
 - Row context from tables for Data and New Feature feedback
 - Automatic migration of feedback saved by earlier versions into the new format
-- Compact agent-ready reports with the page URL, exact selector, visible text, and requested change
+- Compact agent-ready reports that open with a numbered list of requested changes, then give each item's request, visible text, and exact selector
 - Extra parent or nearby-text context only when selector confidence is low
 
 ## Important

@@ -135,20 +135,30 @@
   const elementLabel = element => `${element.tag}${element.classes[0] ? '.' + element.classes[0] : element.displayedValue ? ' ' + element.displayedValue : ''}`.trim();
   const inline = value => String(value || '').replace(/\s+/g, ' ').replace(/[\\`*_\[\]<>]/g, '\\$&');
   const present = value => String(value || '').trim();
+  const block = value => present(value).split(/\n+/).map(line => `> ${inline(line)}`).join('\n>\n');
   function markdown() {
-    const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `- Page: ${pageURL}`];
+    const kindOf = pin => pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} · ${pin.uiAction}` : pin.issueType;
+    const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `Page: ${pageURL}`];
+    if (pins.length) {
+      lines.push('', '**Requested changes**', '');
+      pins.forEach((pin, index) => {
+        const request = present(pin.comment).split('\n')[0], text = cleanText(pin.element.displayedValue);
+        const subject = text ? `"${text.length > 40 ? `${text.slice(0, 40).trim()}…` : text}"` : elementLabel(pin.element);
+        lines.push(`${index + 1}. **${kindOf(pin)}** on ${inline(subject)}${request ? ` — ${inline(request)}` : ''}`);
+      });
+    }
     pins.forEach((pin, index) => {
       const element = pin.element;
-      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${pin.uiAction}` : pin.issueType;
-      lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
+      lines.push('', '---', '', `### ${index + 1}. ${kindOf(pin)} — ${inline(elementLabel(element))}`);
+      if (present(pin.comment)) lines.push(block(pin.comment), '');
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
-      if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
       if (['Data', 'New Feature'].includes(pin.issueType) && element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
       if (element.selectorConfidence === 'low') {
         const parent = element.parentChain?.[0];
         if (parent) lines.push(`- Parent: ${inline(`${parent.tag}${parent.classes?.[0] ? `.${parent.classes[0]}` : ''}`)}`);
         if (present(element.nearbyText) && element.nearbyText !== element.displayedValue) lines.push(`- Nearby: ${inline(element.nearbyText)}`);
       }
+      lines.push(`- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
     });
     return lines.join('\n');
   }
