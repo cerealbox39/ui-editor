@@ -125,15 +125,9 @@
     const headers = [...table.querySelectorAll('thead th')].map(header => short(header.textContent));
     return Object.fromEntries([...row.children].map((cell, index) => [headers[index] || `Column ${index + 1}`, short(cell.textContent)]));
   }
-  function nearbyControls(element) {
-    const container = element.closest('form, section, article, main') || document.body;
-    return [...container.querySelectorAll('input, select, textarea')].slice(0, 10).map(control => ({
-      label: short(control.getAttribute('aria-label') || control.closest('label')?.textContent || control.name || control.id), value: short(controlValue(control)),
-    })).filter(item => item.label || item.value);
-  }
   function describe(element) {
-    const style = getComputedStyle(element), rect = element.getBoundingClientRect(), selector = selectorFor(element);
-    return { ...selector, tag: element.localName, classes: [...element.classList], displayedValue: short(controlValue(element) || element.textContent), dataAttributes: { ...element.dataset }, parentChain: [...Array(3)].map((_, index) => { let node = element.parentElement; for (let step = 0; step < index; step++) node = node?.parentElement; return node && { tag: node.localName, classes: [...node.classList], text: short(node.textContent) }; }).filter(Boolean), computedStyles: { color: style.color, backgroundColor: style.backgroundColor, fontSize: style.fontSize, fontWeight: style.fontWeight, padding: style.padding, margin: style.margin, borderRadius: style.borderRadius, width: style.width, height: style.height }, rect: { x: rect.x, y: rect.y, top: rect.top, left: rect.left, width: rect.width, height: rect.height }, nearbyText: short(element.parentElement?.textContent), tableContext: tableContext(element), nearbyControls: nearbyControls(element) };
+    const selector = selectorFor(element), parent = element.parentElement;
+    return { ...selector, tag: element.localName, classes: [...element.classList], displayedValue: short(controlValue(element) || element.textContent), tableContext: tableContext(element), ...(selector.selectorConfidence === 'low' ? { parentChain: parent ? [{ tag: parent.localName, classes: [...parent.classList] }] : [], nearbyText: short(parent?.textContent) } : {}) };
   }
 
   const elementLabel = element => `${element.tag}${element.classes[0] ? '.' + element.classes[0] : element.displayedValue ? ' ' + element.displayedValue : ''}`.trim();
