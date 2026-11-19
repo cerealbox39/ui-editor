@@ -31,3 +31,6 @@
 #pin-root .pin-item { margin: 6px 0; }
 #pin-root .pin-item .pin-button { width: 100%; }
 #pin-root .pin-empty { color: #637086; padding: 12px 0; }
+#pin-root .pin-marker-layer { position: fixed; inset: 0; z-index: 2147483643; overflow: hidden; pointer-events: none; }
+#pin-root .pin-marker-group { position: absolute; display: flex; gap: 3px; }
+#pin-root .pin-marker-dot { min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 4px; border-radius: 999px; background: #4559c9; box-shadow: 0 0 0 2px #fff; color: #fff; font: 650 10px/18px system-ui, sans-serif; text-align: center; white-space: nowrap; }
