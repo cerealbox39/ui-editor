@@ -182,18 +182,50 @@
   }
   function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
-    const edge = 12, viewportGap = 8, width = editor.getBoundingClientRect().width;
+    const edge = 12, viewportGap = 8;
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
-    if (!rect) { editor.style.left = `${innerWidth - width - 24}px`; editor.style.top = '24px'; return; }
-    const horizontalTop = Math.max(viewportGap, Math.min(rect.top, innerHeight - editor.offsetHeight - viewportGap));
-    const placements = [
+    const { width, height } = editor.getBoundingClientRect();
+    const viewport = { left: viewportGap, top: viewportGap, right: innerWidth - viewportGap, bottom: innerHeight - viewportGap };
+    const intersects = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
+    const expand = box => ({ left: box.left - edge, top: box.top - edge, right: box.right + edge, bottom: box.bottom + edge });
+    const obstacles = [panel, toggle].filter(element => element.getClientRects().length).map(element => expand(element.getBoundingClientRect()));
+    const horizontalTop = Math.max(viewportGap, Math.min(rect?.top || 24, innerHeight - height - viewportGap));
+    const placements = rect ? [
       { room: innerWidth - rect.right - edge, fit: innerWidth - rect.right - edge >= width, left: rect.right + edge, top: horizontalTop, maxHeight: innerHeight - (viewportGap * 2) },
       { room: rect.left - edge, fit: rect.left - edge >= width, left: rect.left - width - edge, top: horizontalTop, maxHeight: innerHeight - (viewportGap * 2) },
       { room: innerHeight - rect.bottom - edge, fit: innerHeight - rect.bottom - edge >= 280, left: Math.max(viewportGap, Math.min(rect.left, innerWidth - width - viewportGap)), top: rect.bottom + edge, maxHeight: innerHeight - rect.bottom - edge - viewportGap },
       { room: rect.top - edge, fit: rect.top - edge >= 280, left: Math.max(viewportGap, Math.min(rect.left, innerWidth - width - viewportGap)), top: viewportGap, maxHeight: rect.top - edge - viewportGap },
-    ];
-    const placement = placements.filter(option => option.fit).sort((left, right) => right.room - left.room)[0] || placements.sort((left, right) => right.room - left.room)[0];
-    editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`; editor.style.maxHeight = `${Math.max(280, placement.maxHeight)}px`;
+    ] : [{ room: 0, fit: true, left: innerWidth - width - 24, top: 24 }];
+    let placement = placements.filter(option => {
+      const box = { left: option.left, top: option.top, right: option.left + width, bottom: option.top + height };
+      return option.fit && box.left >= viewport.left && box.top >= viewport.top && box.right <= viewport.right && box.bottom <= viewport.bottom && !obstacles.some(obstacle => intersects(box, obstacle)) && (!rect || !intersects(box, expand(rect)));
+    }).sort((left, right) => right.room - left.room)[0];
+    if (!placement) {
+      const freeRegions = blocked => blocked.reduce((regions, obstacle) => regions.flatMap(region => {
+        if (!intersects(region, obstacle)) return [region];
+        return [
+          { ...region, right: Math.min(region.right, obstacle.left) },
+          { ...region, left: Math.max(region.left, obstacle.right) },
+          { ...region, bottom: Math.min(region.bottom, obstacle.top) },
+          { ...region, top: Math.max(region.top, obstacle.bottom) },
+        ].filter(box => box.right > box.left && box.bottom > box.top);
+      }), [viewport]);
+      const targetRegions = rect ? freeRegions([...obstacles, expand(rect)]) : [];
+      const obstacleRegions = freeRegions(obstacles);
+      const usable = region => region.bottom - region.top >= Math.min(280, height);
+      const fitsForm = region => {
+        editor.style.width = `${Math.min(width, region.right - region.left)}px`;
+        return region.bottom - region.top >= editor.scrollHeight + (editor.offsetHeight - editor.clientHeight);
+      };
+      const regions = [targetRegions.filter(fitsForm), obstacleRegions.filter(fitsForm), targetRegions.filter(usable), obstacleRegions.filter(usable), obstacleRegions].find(options => options.length);
+      const region = regions.sort((a, b) => (b.right - b.left) * (b.bottom - b.top) - (a.right - a.left) * (a.bottom - a.top))[0];
+      if (!region) return;
+      const availableWidth = Math.min(width, region.right - region.left);
+      editor.style.width = `${availableWidth}px`;
+      placement = { left: Math.max(region.left, Math.min(rect?.left ?? innerWidth - availableWidth - 24, region.right - availableWidth)), top: region.top, maxHeight: region.bottom - region.top };
+    }
+    editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`;
+    if (placement.maxHeight !== undefined) editor.style.maxHeight = `${placement.maxHeight}px`;
   }
   function savedPinTarget(selector) {
     if (!selector) return null;
@@ -247,5 +279,5 @@
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
   document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
-  window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', resetHover); render();
+  window.addEventListener('scroll', resetHover, true); window.addEventListener('resize', () => { resetHover(); if (!editor.hidden) placeEditor(target?.getBoundingClientRect()); }); render();
 })();
