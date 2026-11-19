@@ -3,7 +3,7 @@
 #pin-root [hidden] { display: none !important; }
 #pin-root .pin-button { appearance: none; cursor: pointer; background: #fff; color: #253047; border: 1px solid #c8d0df; padding: 7px 12px; border-radius: 7px; text-align: left; white-space: pre-wrap; overflow-wrap: anywhere; }
 #pin-root .pin-button:hover { background: #edf2ff; }
-#pin-root .pin-button:focus-visible, #pin-root .pin-comment:focus-visible { outline: 3px solid #5478ff; outline-offset: 2px; }
+#pin-root .pin-button:focus-visible, #pin-root .pin-comment:focus-visible, #pin-root .pin-marker-dot:focus-visible { outline: 3px solid #5478ff; outline-offset: 2px; }
 #pin-root .pin-button-primary { background: #344ee7; border-color: #344ee7; color: #fff; }
 #pin-root .pin-button-primary:hover { background: #293fc2; border-color: #293fc2; }
 #pin-root .pin-button-danger { color: #b42332; border-color: #b42332; margin-left: auto; }
@@ -30,7 +30,9 @@
 #pin-root .pin-list { list-style: none; padding: 0; margin: 12px 0; }
 #pin-root .pin-item { margin: 6px 0; }
 #pin-root .pin-item .pin-button { width: 100%; }
+#pin-root .pin-item .pin-card-highlighted { border-color: #5268ff; background: #edf2ff; box-shadow: inset 3px 0 #5268ff; }
 #pin-root .pin-empty { color: #637086; padding: 12px 0; }
 #pin-root .pin-marker-layer { position: fixed; inset: 0; z-index: 2147483643; overflow: hidden; pointer-events: none; }
 #pin-root .pin-marker-group { position: absolute; display: flex; gap: 3px; }
-#pin-root .pin-marker-dot { min-width: 18px; height: 18px; box-sizing: border-box; padding: 0 4px; border-radius: 999px; background: #4559c9; box-shadow: 0 0 0 2px #fff; color: #fff; font: 650 10px/18px system-ui, sans-serif; text-align: center; white-space: nowrap; }
+#pin-root .pin-marker-dot { appearance: none; pointer-events: auto; cursor: pointer; min-width: 18px; height: 18px; box-sizing: border-box; margin: 0; padding: 0 4px; border: 0; border-radius: 999px; background: #4559c9; box-shadow: 0 0 0 2px #fff; color: #fff; font: 650 10px/18px system-ui, sans-serif; text-align: center; white-space: nowrap; }
+#pin-root .pin-marker-dot:hover { background: #293fc2; }
