@@ -2,18 +2,34 @@
   'use strict';
   if (new URLSearchParams(location.search).get('pin') !== '1' || document.getElementById('pin-root')) return;
 
-  const issueTypes = ['UI/UX', 'Incorrect data', 'Missing data', 'Broken behavior', 'Suggestion'];
-  const uiIntents = ['Move', 'Resize', 'Recolour', 'Alignment', 'Text', 'Remove', 'Other'];
+  const issueTypes = ['UI/UX', 'Data', 'New Feature'];
+  const uiActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
 
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
-    if (Array.isArray(stored)) pins = stored.filter(pin => pin?.element && typeof pin.comment === 'string').map(pin => ({
-      ...pin, issueType: issueTypes.includes(pin.issueType) ? pin.issueType : 'UI/UX', uiIntent: pin.uiIntent || pin.intent || 'Other',
-      expected: pin.expected || '', correctValue: pin.correctValue || '', dataSource: pin.dataSource || '', steps: pin.steps || '', screenshotReference: pin.screenshotReference || '',
-    }));
+    let migrateStorage = false;
+    const legacyFields = ['expected', 'correctValue', 'dataSource', 'steps', 'screenshotReference', 'uiIntent', 'intent'];
+    const legacyTypes = { 'Incorrect data': 'Data', 'Missing data': 'Data', Suggestion: 'New Feature', 'Broken behavior': 'UI/UX' };
+    const valueText = value => typeof value === 'string' ? value.trim() : value == null ? '' : String(value).trim();
+    if (Array.isArray(stored)) pins = stored.filter(pin => pin && typeof pin === 'object' && pin.element).map(pin => {
+      const oldType = valueText(pin.issueType), issueType = issueTypes.includes(oldType) ? oldType : legacyTypes[oldType] || 'UI/UX';
+      const comment = valueText(pin.comment), additions = [];
+      const addLine = (label, value) => { const text = valueText(value); if (text) additions.push(`${label}: ${text}`); };
+      addLine('Expected result', pin.expected); addLine('Correct or missing value', pin.correctValue);
+      addLine('Source or reference', pin.dataSource); addLine('Steps to reproduce', pin.steps);
+      addLine('Screenshot reference', pin.screenshotReference);
+      [...new Set([valueText(pin.uiIntent), valueText(pin.intent)].filter(Boolean))].forEach(value => addLine('Previous UI intent', value));
+      if (oldType && !issueTypes.includes(oldType) && !legacyTypes[oldType]) addLine('Previous issue type', oldType);
+      const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
+      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string') migrateStorage = true;
+      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && uiActions.includes(pin.uiAction) ? pin.uiAction : '', comment: migratedComment };
+      legacyFields.forEach(key => { delete migrated[key]; });
+      return migrated;
+    });
+    if (migrateStorage) localStorage.setItem(storageKey, JSON.stringify(pins));
   } catch (_) { /* Storage may be unavailable. */ }
 
   const root = document.createElement('div'); root.id = 'pin-root';
@@ -28,9 +44,6 @@
   const field = (label, control) => {
     const wrapper = make('label', 'field', undefined, editor); make('span', 'field-label', label, wrapper); wrapper.append(control); return wrapper;
   };
-  const input = (label, placeholder) => {
-    const control = make('input', 'input'); control.placeholder = placeholder; control.setAttribute('aria-label', label); return { wrapper: field(label, control), control };
-  };
   const area = (label, placeholder) => {
     const control = make('textarea', 'comment'); control.placeholder = placeholder; control.setAttribute('aria-label', label); return { wrapper: field(label, control), control };
   };
@@ -41,7 +54,7 @@
   const outlineLabel = make('div', 'label', '', outline);
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
   make('h2', 'heading', 'App feedback', panel);
-  make('p', 'hint', 'Point to any UI, data value, or broken interaction. Esc exits.', panel);
+  make('p', 'hint', 'Point to any UI, data value, or feature. Esc exits.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
   button('Clear all', controls, () => { pins = []; closeEditor(); changed(); });
@@ -56,18 +69,13 @@
   const title = make('h2', 'heading', 'New feedback', editor);
   make('span', 'field-label', 'Issue type', editor);
   const typeChips = make('div', 'chips', undefined, editor);
-  let issueType = 'UI/UX', uiIntent = 'Other';
+  let issueType = 'UI/UX', uiAction = '';
   const typeButtons = issueTypes.map(value => button(value, typeChips, () => { issueType = value; refreshFields(); }));
-  const intentGroup = make('div', 'conditional', undefined, editor);
-  make('span', 'field-label', 'UI change', intentGroup);
+  const intentGroup = make('div', 'quick-actions', undefined, editor);
+  make('span', 'field-label', 'UI Quick Actions', intentGroup);
   const intentChips = make('div', 'chips', undefined, intentGroup);
-  const intentButtons = uiIntents.map(value => button(value, intentChips, () => { uiIntent = value; refreshFields(); }));
-  const comment = area('What is wrong or should change?', 'Describe the issue in your own words.');
-  const expected = area('Expected result', 'What should the app show or do instead?');
-  const correctValue = input('Correct or missing value', 'For example: USD 890');
-  const dataSource = input('Source or reference', 'Workbook cell, Google Sheet, URL, owner, or effective date');
-  const steps = area('Steps to reproduce', 'What did you do before the problem appeared?');
-  const screenshot = input('Screenshot reference', 'Optional local screenshot path or filename');
+  const intentButtons = uiActions.map(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+  const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
   const save = button('Save', actions, () => {}); save.type = 'submit';
   button('Cancel', actions, closeEditor);
@@ -76,16 +84,13 @@
 
   function refreshFields() {
     typeButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(issueTypes[index] === issueType)));
-    intentButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(uiIntents[index] === uiIntent)));
+    intentButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(uiActions[index] === uiAction)));
     intentGroup.hidden = issueType !== 'UI/UX';
-    correctValue.wrapper.hidden = !['Incorrect data', 'Missing data'].includes(issueType);
-    dataSource.wrapper.hidden = !['Incorrect data', 'Missing data'].includes(issueType);
-    steps.wrapper.hidden = issueType !== 'Broken behavior';
   }
 
   editor.addEventListener('submit', event => {
     event.preventDefault();
-    const values = { issueType, uiIntent, comment: comment.control.value, expected: expected.control.value, correctValue: correctValue.control.value, dataSource: dataSource.control.value, steps: steps.control.value, screenshotReference: screenshot.control.value };
+    const values = { issueType, uiAction: issueType === 'UI/UX' ? uiAction : '', comment: comment.control.value };
     if (editing) Object.assign(pins.find(pin => pin.id === editing) || {}, values);
     else if (target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: describe(target), ...values });
     closeEditor(); changed();
@@ -138,18 +143,11 @@
     const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `- Page: ${pageURL}`];
     pins.forEach((pin, index) => {
       const element = pin.element;
-      const kind = pin.issueType === 'UI/UX' ? `${pin.issueType} / ${pin.uiIntent}` : pin.issueType;
+      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${pin.uiAction}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
-      if (present(pin.expected)) lines.push(`- Expected: ${inline(pin.expected)}`);
-      if (['Incorrect data', 'Missing data'].includes(pin.issueType)) {
-        if (present(pin.correctValue)) lines.push(`- Correct/missing value: ${inline(pin.correctValue)}`);
-        if (present(pin.dataSource)) lines.push(`- Source: ${inline(pin.dataSource)}`);
-        if (element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
-      }
-      if (pin.issueType === 'Broken behavior' && present(pin.steps)) lines.push(`- Steps: ${inline(pin.steps)}`);
-      if (present(pin.screenshotReference)) lines.push(`- Screenshot: ${inline(pin.screenshotReference)}`);
+      if (['Data', 'New Feature'].includes(pin.issueType) && element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
       if (element.selectorConfidence === 'low') {
         const parent = element.parentChain?.[0];
         if (parent) lines.push(`- Parent: ${inline(`${parent.tag}${parent.classes?.[0] ? `.${parent.classes[0]}` : ''}`)}`);
@@ -191,8 +189,8 @@
     editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`; editor.style.maxHeight = `${Math.max(280, placement.maxHeight)}px`;
   }
   function openEditor(element, pin) {
-    target = element; editing = pin?.id || null; issueType = pin?.issueType || 'UI/UX'; uiIntent = pin?.uiIntent || 'Other';
-    comment.control.value = pin?.comment || ''; expected.control.value = pin?.expected || ''; correctValue.control.value = pin?.correctValue || ''; dataSource.control.value = pin?.dataSource || ''; steps.control.value = pin?.steps || ''; screenshot.control.value = pin?.screenshotReference || ''; remove.hidden = !pin;
+    target = element; editing = pin?.id || null; issueType = issueTypes.includes(pin?.issueType) ? pin.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(pin?.uiAction) ? pin.uiAction : '';
+    comment.control.value = pin?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
   }
