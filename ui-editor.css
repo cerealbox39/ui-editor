@@ -32,7 +32,7 @@
 #pin-root .pin-item + .pin-item { border-top: 1px solid #e6e9f0; }
 #pin-root .pin-item .pin-button { width: 100%; }
 #pin-root .pin-card { border: 0; border-radius: 8px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 4px 10px; align-items: start; padding: 10px 12px; white-space: normal; }
-#pin-root .pin-card-number { grid-row: span 3; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: #4559c9; color: #fff; font: 650 11px/20px system-ui, sans-serif; text-align: center; }
+#pin-root .pin-card-number { grid-row: span 2; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: #4559c9; color: #fff; font: 650 11px/20px system-ui, sans-serif; text-align: center; }
 #pin-root .pin-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 #pin-root .pin-card-type, #pin-root .pin-card-action { padding: 0 7px; border-radius: 999px; font: 600 11px/18px system-ui, sans-serif; }
 #pin-root .pin-card-type { background: #e8ecfd; color: #2f45c5; }
@@ -41,7 +41,6 @@
 #pin-root .pin-card-action { background: #eef0f4; color: #3d4960; }
 #pin-root .pin-card-comment { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; color: #202838; font: 500 14px/1.4 system-ui, sans-serif; }
 #pin-root .pin-card-comment-empty { color: #637086; font-style: italic; font-weight: 400; }
-#pin-root .pin-card-element { overflow: hidden; color: #637086; font: 12px/1.4 system-ui, sans-serif; text-overflow: ellipsis; white-space: nowrap; }
 #pin-root .pin-empty { color: #637086; padding: 12px 0; }
 #pin-root .pin-marker-layer { position: fixed; inset: 0; z-index: 2147483643; overflow: hidden; pointer-events: none; }
 #pin-root .pin-marker-group { position: absolute; display: flex; gap: 3px; }

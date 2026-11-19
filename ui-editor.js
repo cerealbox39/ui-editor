@@ -180,14 +180,14 @@
         item = make('li', 'item', undefined, list);
         button('', item, () => openEditor(null, pin)); listItems.set(pin, item);
         const card = item.firstChild; card.classList.add('pin-card');
-        ['number', 'tags', 'comment', 'element'].forEach(part => make('span', `card-${part}`, undefined, card));
+        ['number', 'tags', 'comment'].forEach(part => make('span', `card-${part}`, undefined, card));
         ['type', 'action'].forEach(part => make('span', `card-${part}`, undefined, card.children[1]));
       }
-      const card = item.firstChild, [number, tags, text, where] = card.children, [type, action] = tags.children;
-      const { tag, classes, displayedValue } = pin.element, value = short(displayedValue), request = short(pin.comment);
-      const parts = { number: String(index + 1), type: pin.issueType, action: pin.uiAction || '', text: request || 'No comment', where: `${tag}${classes[0] ? `.${classes[0]}` : ''}${value ? ` · "${value}"` : ''}` };
-      [[number, parts.number], [type, parts.type], [action, parts.action], [text, parts.text], [where, parts.where]].forEach(([element, content]) => { if (element.textContent !== content) element.textContent = content; });
-      const label = `${parts.number}. ${[parts.type, parts.action].filter(Boolean).join(', ')}: ${parts.text} (${parts.where})`;
+      const card = item.firstChild, [number, tags, text] = card.children, [type, action] = tags.children;
+      const request = short(pin.comment);
+      const parts = { number: String(index + 1), type: pin.issueType, action: pin.uiAction || '', text: request || 'No comment' };
+      [[number, parts.number], [type, parts.type], [action, parts.action], [text, parts.text]].forEach(([element, content]) => { if (element.textContent !== content) element.textContent = content; });
+      const label = `${parts.number}. ${[parts.type, parts.action].filter(Boolean).join(', ')}: ${parts.text}`;
       if (card.getAttribute('aria-label') !== label) card.setAttribute('aria-label', label);
       if (card.dataset.type !== pin.issueType) card.dataset.type = pin.issueType;
       if (action.hidden === Boolean(pin.uiAction)) action.hidden = !pin.uiAction;
