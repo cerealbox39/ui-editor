@@ -58,7 +58,7 @@
   make('p', 'hint', 'Point to any UI, data value, or feature. Esc exits.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
-  button('Clear all', controls, () => { pins = []; closeEditor(); changed(); });
+  button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
   const autoLabel = make('label', 'auto', undefined, panel);
   const auto = make('input', 'checkbox', undefined, autoLabel); auto.type = 'checkbox'; auto.checked = true;
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
