@@ -29,6 +29,8 @@ If the URL already has query parameters, append `&pin=1`.
 
 Click the floating feedback button or press `Alt+Shift+P`, select an element, complete the feedback form, and save. The generated Markdown report can be copied from the overlay.
 
+In inspect mode, a small dot on each element with saved feedback shows its number in the feedback list. The dots renumber when you delete a note and disappear when you leave inspect mode or use **Clear all**.
+
 This version supports:
 
 - Issue types: UI/UX, Data, and New Feature
