@@ -31,12 +31,11 @@ Click the floating feedback button or press `Alt+Shift+P`, select an element, co
 
 This version supports:
 
-- Issue types: UI/UX, Incorrect data, Missing data, Broken behavior, and Suggestion
-- UI change categories
-- Main feedback and expected-result fields
-- Correct/missing value and source fields for data issues
-- Reproduction steps for broken behavior
-- Optional screenshot references
+- Issue types: UI/UX, Data, and New Feature
+- Optional UI quick actions for UI/UX feedback: Remove, Bold, Reduce font, Increase font, and Standardise (max 3 font sizes)
+- A single comments field
+- Row context from tables for Data and New Feature feedback
+- Automatic migration of feedback saved by earlier versions into the new format
 - Compact agent-ready reports with the page URL, exact selector, visible text, and requested change
 - Extra parent or nearby-text context only when selector confidence is low
 
@@ -45,5 +44,4 @@ This version supports:
 - Use only in development or protected preview environments.
 - `pin=1` is an activation switch, not authentication.
 - Clipboard access requires localhost or HTTPS and browser permission.
-- Screenshots are referenced but not captured automatically.
 - Remove the stylesheet and script tags to uninstall the overlay.
