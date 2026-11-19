@@ -93,6 +93,7 @@
 #pin-root .pin-marker-dot:hover, #pin-root .pin-marker-dot:active, #pin-root .pin-marker-dot:focus-visible { background: var(--pin-accent-hover); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pin-accent); }
 
 @media (prefers-color-scheme: light) {
+  #pin-root .pin-comment:not(:focus) { border-color: rgba(60, 60, 67, .16); }
   #pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])) { background: rgba(118, 118, 128, .16); }
   #pin-root :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])):hover { background: rgba(118, 118, 128, .2); }
 }
