@@ -194,33 +194,48 @@
     const placement = placements.filter(option => option.fit).sort((left, right) => right.room - left.room)[0] || placements.sort((left, right) => right.room - left.room)[0];
     editor.style.left = `${placement.left}px`; editor.style.top = `${placement.top}px`; editor.style.maxHeight = `${Math.max(280, placement.maxHeight)}px`;
   }
+  function savedPinTarget(selector) {
+    if (!selector) return null;
+    try {
+      const matches = document.querySelectorAll(selector);
+      if (matches.length === 1 && !root.contains(matches[0])) return matches[0];
+    } catch (_) { /* A stored selector may be invalid. */ }
+    return null;
+  }
   function openEditor(element, pin) {
+    resetHover();
     const key = pin?.id || element, values = drafts.get(key) || pin;
     drafts.delete(key);
     target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(values?.uiAction) ? values.uiAction : '';
     comment.control.value = values?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
+    showOutline(element || savedPinTarget(pin?.element.selector));
   }
-  let hoverFrame = null, hoverTarget = null, hoverLabel = null, hoverStyle = {};
+  let hoverFrame = null, hoverTarget = null, outlineText = null, outlineStyle = {};
   function resetHover() {
     if (hoverFrame !== null) cancelAnimationFrame(hoverFrame);
-    hoverFrame = null; hoverTarget = null; hoverLabel = null; hoverStyle = {}; outline.hidden = true;
+    hoverFrame = null; hoverTarget = null;
+    if (!outline.hidden) outline.hidden = true;
   }
   function renderHover() {
     hoverFrame = null;
     const element = hoverTarget; hoverTarget = null;
-    if (!active || !editor.hidden || !element?.isConnected) return;
-    const rect = element.getBoundingClientRect();
+    if (active && editor.hidden) showOutline(element);
+  }
+  function showOutline(element) {
+    const rect = element?.isConnected ? element.getBoundingClientRect() : null;
+    if (!rect?.width || !rect.height) { resetHover(); return; }
     const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
     const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
     if (outline.hidden) outline.hidden = false;
-    for (const key of Object.keys(style)) { if (style[key] !== hoverStyle[key]) outline.style[key] = style[key]; }
-    if (label !== hoverLabel) outlineLabel.textContent = label;
-    hoverStyle = style; hoverLabel = label;
+    for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
+    if (label !== outlineText) outlineLabel.textContent = label;
+    outlineStyle = style; outlineText = label;
   }
   function hover(event) {
-    if (!active || !editor.hidden || root.contains(event.target) || !(event.target instanceof Element)) return;
+    if (!active || !editor.hidden) return;
+    if (!(event.target instanceof Element) || root.contains(event.target)) { resetHover(); return; }
     hoverTarget = event.target;
     if (hoverFrame === null) hoverFrame = requestAnimationFrame(renderHover);
   }
