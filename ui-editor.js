@@ -77,9 +77,10 @@
   const intentButtons = uiActions.map(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
   const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
-  const save = button('Save', actions, () => {}); save.type = 'submit';
+  const save = button('Save', actions, () => {}); save.type = 'submit'; save.classList.add('pin-button-primary');
   button('Cancel', actions, closeEditor);
   const remove = button('Delete', actions, () => { pins = pins.filter(pin => pin.id !== editing); closeEditor(); changed(); });
+  remove.classList.add('pin-button-danger');
   document.body.append(root);
 
   function refreshFields() {
