@@ -215,9 +215,9 @@
     for (const key of Object.keys(style)) { if (style[key] !== hoverStyle[key]) outline.style[key] = style[key]; }
     if (label !== hoverLabel) outlineLabel.textContent = label;
     const labelRect = outlineLabel.getBoundingClientRect();
-    outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, window.innerWidth - labelRect.width))}px`;
+    outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, document.documentElement.clientWidth - labelRect.width))}px`;
     const above = rect.top - labelRect.height - 4, below = rect.bottom + 4;
-    const top = above >= 0 ? above : below + labelRect.height <= window.innerHeight ? below : Math.max(0, rect.top);
+    const top = above >= 0 ? above : below + labelRect.height <= document.documentElement.clientHeight ? below : Math.max(0, rect.top);
     outlineLabel.style.top = `${top}px`;
     hoverStyle = style; hoverLabel = label;
   }
