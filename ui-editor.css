@@ -12,6 +12,7 @@
 #pin-root .pin-toggle, #pin-root .pin-toggle[aria-pressed="true"] { position: fixed; bottom: 20px; right: 20px; z-index: 2147483647; border-color: #344ee7 !important; box-shadow: 0 4px 20px #17264c33; background: #344ee7 !important; color: #fff !important; }
 #pin-root .pin-toggle:hover { border-color: #5268ff !important; background: #5268ff !important; }
 #pin-root .pin-outline { position: fixed; z-index: 2147483644; outline: 2px solid #5268ff; pointer-events: none; background: #5268ff0d; }
+#pin-root .pin-outline-selected { z-index: 2147483647; }
 #pin-root .pin-label { position: fixed; left: 0; top: 0; width: max-content; max-width: min(320px, calc(100vw - 14px)); background: #344ee7; color: white; padding: 2px 7px; font: 12px/1.5 system-ui; overflow: hidden; white-space: nowrap; }
 #pin-root .pin-panel, #pin-root .pin-editor { position: fixed; z-index: 2147483645; background: #fff; color: #202838; padding: 16px; border: 1px solid #d6dce9; border-radius: 12px; box-shadow: 0 8px 40px #17264c33; max-height: calc(100vh - 90px); overflow: auto; }
 #pin-root .pin-panel { right: 20px; bottom: 72px; width: min(340px, calc(100vw - 40px)); }
