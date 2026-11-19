@@ -187,8 +187,28 @@
     const element = savedPinTarget(pin.element.selector);
     const rect = element?.getBoundingClientRect();
     const offscreen = rect && (rect.bottom <= 0 || rect.top >= document.documentElement.clientHeight);
-    element?.scrollIntoView({ block: offscreen ? 'center' : 'nearest', inline: 'nearest', behavior: 'instant' });
+    if (element) {
+      element.scrollIntoView({ block: offscreen ? 'center' : 'nearest', inline: 'nearest', behavior: 'instant' });
+      revealBehindPanel(element);
+    }
     openEditor(element, pin);
+  }
+  function intersects(a, b) { return a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top; }
+  function revealBehindPanel(element) {
+    const rect = element.getBoundingClientRect(), panelRect = panel.getBoundingClientRect();
+    if (!intersects(rect, panelRect)) return;
+    const { clientHeight, scrollHeight } = document.scrollingElement;
+    const scrollTop = window.scrollY, gap = 8;
+    const offsets = [rect.bottom - panelRect.top + gap, rect.top - panelRect.bottom - gap]
+      .filter(offset => rect.top - offset >= 0 && rect.bottom - offset <= clientHeight && scrollTop + offset >= 0 && scrollTop + offset <= scrollHeight - clientHeight)
+      .sort((a, b) => Math.abs(a) - Math.abs(b));
+    for (const offset of offsets) {
+      window.scrollTo({ top: scrollTop + offset, behavior: 'instant' });
+      const moved = element.getBoundingClientRect();
+      if (moved.top >= 0 && moved.bottom <= clientHeight && !intersects(moved, panelRect)) return;
+    }
+    if (offsets.length) window.scrollTo({ top: scrollTop, behavior: 'instant' });
+    panel.hidden = true;
   }
   function render() {
     const current = new Set(pins);
@@ -207,13 +227,12 @@
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
     renderSavedMarkers();
   }
-  function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
+  function closeEditor() { editor.hidden = true; panel.hidden = !active; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
     const edge = 12, viewportGap = 8;
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
     const { width, height } = editor.getBoundingClientRect();
     const viewport = { left: viewportGap, top: viewportGap, right: innerWidth - viewportGap, bottom: innerHeight - viewportGap };
-    const intersects = (a, b) => a.left < b.right && a.right > b.left && a.top < b.bottom && a.bottom > b.top;
     const expand = box => ({ left: box.left - edge, top: box.top - edge, right: box.right + edge, bottom: box.bottom + edge });
     const obstacles = [panel, toggle].filter(element => element.getClientRects().length).map(element => expand(element.getBoundingClientRect()));
     const horizontalTop = Math.max(viewportGap, Math.min(rect?.top || 24, innerHeight - height - viewportGap));
@@ -244,7 +263,8 @@
         editor.style.width = `${Math.min(width, region.right - region.left)}px`;
         return region.bottom - region.top >= editor.scrollHeight + (editor.offsetHeight - editor.clientHeight);
       };
-      const regions = [targetRegions.filter(fitsForm), obstacleRegions.filter(fitsForm), targetRegions.filter(usable), obstacleRegions.filter(usable), obstacleRegions].find(options => options.length);
+      const compactTargetRegions = editing ? targetRegions.filter(region => usable(region) && region.right - region.left >= Math.min(280, width)) : [];
+      const regions = [targetRegions.filter(fitsForm), compactTargetRegions, obstacleRegions.filter(fitsForm), targetRegions.filter(usable), obstacleRegions.filter(usable), obstacleRegions].find(options => options.length);
       const region = regions.sort((a, b) => (b.right - b.left) * (b.bottom - b.top) - (a.right - a.left) * (a.bottom - a.top))[0];
       if (!region) return;
       const availableWidth = Math.min(width, region.right - region.left);
@@ -337,7 +357,7 @@
   }
   function intercept(event) { if (!active || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
   function setActive(value) {
-    active = value; panel.hidden = !value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
+    active = value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
     clearCardHighlight();
     renderSavedMarkers();
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
