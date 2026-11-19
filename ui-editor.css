@@ -47,7 +47,7 @@
 #pin-root .pin-toggle:hover { background: var(--pin-accent-hover); }
 #pin-root .pin-toggle:focus-visible { box-shadow: 0 0 0 4px var(--pin-ring), 0 6px 24px rgba(0, 113, 227, .3); }
 #pin-root .pin-outline { position: fixed; z-index: 2147483644; outline: 2px solid var(--pin-accent); border-radius: 4px; pointer-events: none; background: rgba(0, 113, 227, .05); }
-#pin-root .pin-outline-selected { outline-color: var(--pin-accent); background: rgba(0, 113, 227, .1); }
+#pin-root .pin-outline-selected { z-index: 2147483647; outline-color: var(--pin-accent); background: transparent; box-shadow: 0 0 12px var(--pin-ring); }
 #pin-root .pin-label { position: fixed; left: 0; top: 0; width: max-content; max-width: min(320px, calc(100vw - 14px)); background: var(--pin-accent); color: #fff; padding: 3px 9px; border-radius: 999px; font: 500 11px/1.5 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; overflow: hidden; white-space: nowrap; }
 #pin-root .pin-panel, #pin-root .pin-editor {
   position: fixed; z-index: 2147483645; background: var(--pin-sheen), var(--pin-glass);
@@ -80,6 +80,7 @@
 #pin-root .pin-card { border: 0; background: transparent; border-radius: 12px; display: grid; grid-template-columns: auto minmax(0, 1fr); gap: 6px 10px; align-items: start; padding: 12px 8px; white-space: normal; }
 #pin-root .pin-card:hover { background: var(--pin-fill); }
 #pin-root .pin-card.pin-card-highlighted { background: rgba(0, 113, 227, .12); }
+#pin-root .pin-card.pin-card-highlighted:focus-visible { outline: none; box-shadow: none; text-decoration: underline; text-underline-offset: 3px; }
 #pin-root .pin-card-number { grid-row: span 2; min-width: 22px; height: 22px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: var(--pin-accent); color: #fff; font-size: 11px; font-weight: 600; line-height: 22px; text-align: center; }
 #pin-root .pin-card-tags { display: flex; flex-wrap: wrap; gap: 4px; }
 #pin-root .pin-card-type, #pin-root .pin-card-action { padding: 1px 7px; border-radius: 999px; font-size: 10px; font-weight: 600; line-height: 18px; }
@@ -92,8 +93,8 @@
 #pin-root .pin-empty { color: var(--pin-secondary); padding: 12px 0; }
 #pin-root .pin-marker-layer { position: fixed; inset: 0; z-index: 2147483643; overflow: hidden; pointer-events: none; }
 #pin-root .pin-marker-group { position: absolute; display: flex; gap: 3px; }
-#pin-root .pin-marker-dot { appearance: none; border: 0; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: var(--pin-accent); box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(0, 113, 227, .2); color: #fff; font: 600 10px/20px Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; text-align: center; white-space: nowrap; transition: background 150ms ease, box-shadow 150ms ease; }
-#pin-root .pin-marker-dot:hover { background: var(--pin-accent-hover); }
+#pin-root .pin-marker-dot { appearance: none; pointer-events: auto; cursor: pointer; margin: 0; border: 0; min-width: 20px; height: 20px; box-sizing: border-box; padding: 0 5px; border-radius: 999px; background: var(--pin-accent); box-shadow: 0 0 0 2px #fff, 0 3px 8px rgba(0, 113, 227, .2); color: #fff; font: 600 10px/20px Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; text-align: center; white-space: nowrap; transition: background 150ms ease, box-shadow 150ms ease; }
+#pin-root .pin-marker-dot:hover, #pin-root .pin-marker-dot:active, #pin-root .pin-marker-dot:focus-visible { background: var(--pin-accent-hover); box-shadow: 0 0 0 2px #fff, 0 0 0 4px var(--pin-accent); }
 
 @media (prefers-color-scheme: dark) {
   #pin-root {
