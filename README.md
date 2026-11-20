@@ -46,6 +46,10 @@ This version supports:
 - Compact agent-ready reports with the page URL, exact selector, visible text, and requested change
 - Extra parent or nearby-text context only when selector confidence is low
 
+## Try it
+
+`demo/` holds a fake Northline Orders dashboard with the overlay already loaded. Run `python3 demo/server.py 8080` from the repo root and open `http://localhost:8080/` (it adds `pin=1` for you).
+
 ## Important
 
 - Use only in development or protected preview environments.

@@ -1,0 +1,113 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Northline Orders · UI Editor demo</title>
+  <link rel="icon" href="icon.svg" type="image/svg+xml">
+  <link rel="apple-touch-icon" href="apple-touch-icon.png">
+  <link rel="manifest" href="manifest.webmanifest" crossorigin="use-credentials">
+  <meta name="theme-color" content="#317CFF">
+  <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+  <aside class="sidebar">
+    <div class="brand"><img src="icon.svg" alt="" width="26" height="26"><span>Northline</span></div>
+    <nav aria-label="Main">
+      <a href="#" class="active">Orders</a>
+      <a href="#">Customers</a>
+      <a href="#">Products</a>
+      <a href="#">Shipments</a>
+      <a href="#">Reports</a>
+      <a href="#">Settings</a>
+    </nav>
+    <div class="sidebar-foot">Demo data only</div>
+  </aside>
+
+  <main>
+    <header class="topbar">
+      <div>
+        <h1>Orders</h1>
+        <p class="muted">November 2026 · All regions</p>
+      </div>
+      <div class="topbar-actions">
+        <button type="button" class="btn">Export CSV</button>
+        <button type="button" class="btn primary">New order</button>
+      </div>
+    </header>
+
+    <section class="intro" id="intro" aria-label="How to try the UI Editor">
+      <div>
+        <h2>Try the UI Editor on this fake dashboard</h2>
+        <ol>
+          <li>Click <b>◎ App feedback</b> at the bottom right, or press <kbd>Alt</kbd>+<kbd>Shift</kbd>+<kbd>P</kbd>.</li>
+          <li>Click anything on the page: a number, a table row, a button.</li>
+          <li>Pick UI/UX, Data or New Feature, add a comment and save.</li>
+          <li>Open the feedback list and copy the Markdown report for your coding agent.</li>
+        </ol>
+        <p class="muted">Ideas: the Pending card shows the wrong count, order NL-10418 has a negative total, and the chart has no axis labels.</p>
+      </div>
+      <button type="button" class="btn ghost" id="dismiss-intro" aria-label="Hide these tips">Hide</button>
+    </section>
+
+    <section class="kpis" aria-label="Summary">
+      <article class="kpi"><span class="kpi-label">Revenue</span><strong class="kpi-value">$184,920</strong><span class="delta up">+12.4% vs Oct</span></article>
+      <article class="kpi"><span class="kpi-label">Orders</span><strong class="kpi-value">1,284</strong><span class="delta up">+8.1% vs Oct</span></article>
+      <article class="kpi"><span class="kpi-label">Average order</span><strong class="kpi-value">$144.02</strong><span class="delta down">−2.3% vs Oct</span></article>
+      <article class="kpi"><span class="kpi-label">Pending</span><strong class="kpi-value">7</strong><span class="delta flat">Needs review</span></article>
+    </section>
+
+    <section class="grid">
+      <article class="card chart-card">
+        <header class="card-head"><h2>Daily revenue</h2><span class="muted">Last 14 days</span></header>
+        <svg id="chart" viewBox="0 0 560 180" role="img" aria-label="Daily revenue bar chart"></svg>
+      </article>
+      <article class="card">
+        <header class="card-head"><h2>Top products</h2><span class="muted">By units</span></header>
+        <ul class="bars" id="top-products"></ul>
+      </article>
+    </section>
+
+    <section class="card">
+      <header class="card-head">
+        <h2>Recent orders</h2>
+        <div class="filters">
+          <input type="search" id="search" placeholder="Search customer or order" aria-label="Search orders">
+          <select id="status-filter" aria-label="Filter by status">
+            <option value="">All statuses</option>
+            <option>Paid</option><option>Pending</option><option>Shipped</option><option>Refunded</option>
+          </select>
+        </div>
+      </header>
+      <div class="table-wrap">
+        <table>
+          <thead><tr><th>Order</th><th>Customer</th><th>Date</th><th>Region</th><th>Status</th><th class="num">Items</th><th class="num">Total</th></tr></thead>
+          <tbody id="orders"></tbody>
+        </table>
+      </div>
+      <p class="muted table-foot" id="table-foot"></p>
+    </section>
+
+    <section class="card">
+      <header class="card-head"><h2>Order settings</h2></header>
+      <form class="settings" onsubmit="event.preventDefault(); this.querySelector('.saved').hidden = false;">
+        <label>Default warehouse
+          <select><option>Singapore (SG-1)</option><option>Sydney (AU-2)</option><option>Rotterdam (NL-1)</option></select>
+        </label>
+        <label>Low stock alert at
+          <input type="number" value="25" min="0"> units
+        </label>
+        <label class="check"><input type="checkbox" checked> Email customers when an order ships</label>
+        <label class="check"><input type="checkbox"> Hold orders over $2,000 for review</label>
+        <div class="form-actions"><button class="btn primary" type="submit">Save settings</button><span class="saved muted" hidden>Saved</span></div>
+      </form>
+    </section>
+
+    <footer class="foot muted">Northline is a fake company. Feedback stays in your browser. <a href="https://github.com/cerealbox39/ui-editor">UI Editor on GitHub</a></footer>
+  </main>
+
+  <script src="app.js"></script>
+  <link rel="stylesheet" href="/ui-editor/ui-editor.css">
+  <script src="/ui-editor/ui-editor.js"></script>
+</body>
+</html>
