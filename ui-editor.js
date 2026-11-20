@@ -507,12 +507,13 @@
     return `${element.tag}${element.classes.map(name => `.${name}`).join('')}${element.displayedValue ? ` “${element.displayedValue}”` : ''}`;
   }
   function annotationReport(annotation, element) {
-    const source = annotationElement(element);
+    const source = inline(annotationElement(element));
     if (annotation.mark !== 'Move') return `${annotation.mark}: ${source}.`;
     const destination = annotation.destination;
     if (!destination?.element || !destination.relation) return `Move: ${source} to the marked spot.`;
-    const control = destination.element, selector = control.selector.startsWith('#') ? `${control.tag}${control.selector}` : `${control.tag}${control.classes.map(name => `.${name}`).join('')}`;
-    return `Move: ${source} to ${destination.relation} (${selector}${destination.placeholder ? `; placeholder “${destination.placeholder}”` : ''}).`;
+    const selector = '`' + destination.element.selector.replace(/`/g, '\\`') + '`';
+    const placeholder = destination.placeholder ? `; placeholder “${inline(destination.placeholder)}”` : '';
+    return `Move: ${source} to ${inline(destination.relation)} (${selector}${placeholder}).`;
   }
 
   const elementLabel = element => `${element.tag}${element.classes[0] ? '.' + element.classes[0] : element.displayedValue ? ' ' + element.displayedValue : ''}`.trim();
@@ -527,7 +528,7 @@
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
-      if (pin.annotation) lines.push(`- ${inline(annotationReport(pin.annotation, element))}`);
+      if (pin.annotation) lines.push(`- ${annotationReport(pin.annotation, element)}`);
       if (['Data', 'New Feature'].includes(pin.issueType) && element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
       if (element.selectorConfidence === 'low') {
         const parent = element.parentChain?.[0];
