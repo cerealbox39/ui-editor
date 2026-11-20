@@ -18,7 +18,8 @@
   try {
     const stored = JSON.parse(localStorage.getItem(actionsStorageKey));
     if (Array.isArray(stored) && stored.every(name => typeof name === 'string' && name.trim())) {
-      const names = stored.map(name => currentActionName(name.trim()));
+      const trimmed = stored.map(name => name.trim());
+      const names = trimmed.filter(name => !trimmed.includes(renamedUIActions.get(name))).map(currentActionName);
       if (new Set(names.map(name => name.toLowerCase())).size === names.length) uiActions = names;
     }
   } catch (_) { /* Storage may be unavailable. */ }
