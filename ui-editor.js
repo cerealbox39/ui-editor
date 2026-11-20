@@ -511,6 +511,15 @@
     if (editor.hidden) resetHover(); else showOutline(target);
     scheduleMarkerPosition();
   }, true);
+  function fitVisualViewport() {
+    const view = globalThis.visualViewport; if (!view) return;
+    root.style.setProperty('--pin-view-top', `${view.offsetTop}px`);
+    root.style.setProperty('--pin-view-bottom', `${Math.max(0, innerHeight - view.height - view.offsetTop)}px`);
+    root.style.setProperty('--pin-view-height', `${view.height}px`);
+  }
+  globalThis.visualViewport?.addEventListener('resize', fitVisualViewport);
+  globalThis.visualViewport?.addEventListener('scroll', fitVisualViewport);
+  fitVisualViewport();
   window.addEventListener('resize', () => {
     resetHover(); scheduleMarkerPosition();
     if (!editor.hidden) { placeEditor(target?.getBoundingClientRect()); showOutline(target); }
