@@ -91,4 +91,6 @@ tbody tr:hover { background: rgba(0, 0, 0, .02); }
   .kpis { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .grid, .settings { grid-template-columns: 1fr; }
   .intro { flex-direction: column; }
+  .filters { width: 100%; }
+  .filters input { flex: 1; min-width: 0; }
 }
