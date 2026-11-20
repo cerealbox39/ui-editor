@@ -39,7 +39,7 @@ Select a note in the feedback list to bring its element into view and highlight 
 This version supports:
 
 - Issue types: UI/UX, Data, and New Feature
-- Optional UI quick actions for UI/UX feedback: Remove, Bold, Reduce font, Increase font, and Standardise (max 3 font sizes)
+- Optional UI quick actions for UI/UX feedback: use the pencil to rename, add, or remove buttons, or choose **Restore to default** to bring back the original set. **Save actions** applies your changes for this site in your browser; it does not change feedback you already saved.
 - A single comments field
 - Row context from tables for Data and New Feature feedback
 - Automatic migration of feedback saved by earlier versions into the new format
