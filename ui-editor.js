@@ -3,7 +3,11 @@
   if (new URLSearchParams(location.search).get('pin') !== '1' || document.getElementById('pin-root')) return;
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
-  const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
+  const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise fonts'];
+  const uiActionDetails = { 'Standardise fonts': 'max 3 font sizes' };
+  const renamedUIActions = { 'Standardise (max 3 font sizes)': 'Standardise fonts' };
+  const currentActionName = name => renamedUIActions[name] || name;
+  const actionWithDetail = name => uiActionDetails[name] ? `${name} (${uiActionDetails[name]})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
@@ -14,7 +18,7 @@
   try {
     const stored = JSON.parse(localStorage.getItem(actionsStorageKey));
     if (Array.isArray(stored) && stored.every(name => typeof name === 'string' && name.trim())) {
-      const names = stored.map(name => name.trim());
+      const names = stored.map(name => currentActionName(name.trim()));
       if (new Set(names.map(name => name.toLowerCase())).size === names.length) uiActions = names;
     }
   } catch (_) { /* Storage may be unavailable. */ }
@@ -35,8 +39,8 @@
       [...new Set([valueText(pin.uiIntent), valueText(pin.intent)].filter(Boolean))].forEach(value => addLine('Previous UI intent', value));
       if (oldType && !issueTypes.includes(oldType) && !legacyTypes[oldType]) addLine('Previous issue type', oldType);
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
-      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string') migrateStorage = true;
-      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? pin.uiAction : '', comment: migratedComment };
+      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string' || renamedUIActions[pin.uiAction]) migrateStorage = true;
+      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? currentActionName(pin.uiAction) : '', comment: migratedComment };
       legacyFields.forEach(key => { delete migrated[key]; });
       return migrated;
     });
@@ -133,7 +137,10 @@
     // Keep the label on existing feedback, even if the action is no longer offered.
     const names = uiAction && !uiActions.includes(uiAction) ? [...uiActions, uiAction] : uiActions;
     intentChips.replaceChildren();
-    names.forEach(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+    names.forEach(value => {
+      const chip = button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); });
+      if (uiActionDetails[value]) chip.title = actionWithDetail(value);
+    });
     emptyActions.hidden = Boolean(names.length);
   }
   function refreshFields() {
@@ -275,7 +282,7 @@
     const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `- Page: ${pageURL}`];
     pins.forEach((pin, index) => {
       const element = pin.element;
-      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${inline(pin.uiAction)}` : pin.issueType;
+      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${inline(actionWithDetail(pin.uiAction))}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
