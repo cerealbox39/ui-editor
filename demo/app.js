@@ -32,7 +32,7 @@
       ['id', 'customer', 'date', 'region', 'status', 'items', 'total'].forEach((field, i) => { cells[i].dataset.testid = `order-${id}-${field}`; });
       cells[4].firstChild.dataset.testid = `order-${id}-status-pill`;
       cells[0].textContent = id; cells[1].textContent = customer;
-      cells[2].textContent = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
+      cells[2].textContent = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', timeZone: 'UTC' });
       cells[3].textContent = region; cells[4].firstChild.textContent = s; cells[4].firstChild.dataset.status = s.toLowerCase();
       cells[5].textContent = items; cells[6].textContent = money(total);
       return tr;
