@@ -2,6 +2,10 @@
 
 Dependency-free UI and application feedback overlay for local development and protected preview environments.
 
+[![UI Editor launch film](docs/ui-editor-launch.gif)](https://raw.githubusercontent.com/cerealbox39/ui-editor/main/docs/ui-editor-launch.mp4)
+
+[Watch the launch film with sound (MP4, 41s)](https://raw.githubusercontent.com/cerealbox39/ui-editor/main/docs/ui-editor-launch.mp4)
+
 ## Install
 
 Easiest method:
