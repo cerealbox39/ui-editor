@@ -26,7 +26,7 @@
 #pin-root [hidden] { display: none !important; }
 #pin-root .pin-button {
   appearance: none; cursor: pointer; background: var(--pin-fill); color: var(--pin-text);
-  border: 0; padding: 8px 14px; border-radius: 999px;
+  border: 1px solid var(--pin-border); padding: 8px 14px; border-radius: 999px;
   text-align: left; white-space: pre-wrap; overflow-wrap: anywhere;
   transition: background 150ms ease, box-shadow 150ms ease;
 }
@@ -132,7 +132,7 @@
 #pin-root .pin-card-type { background: rgba(0, 113, 227, .1); color: #0062c4; }
 #pin-root .pin-card[data-type="Data"] .pin-card-type { background: rgba(255, 149, 0, .13); color: #945700; }
 #pin-root .pin-card[data-type="New Feature"] .pin-card-type { background: rgba(52, 199, 89, .13); color: #187b35; }
-#pin-root .pin-card-action { background: var(--pin-tool-fill); color: var(--pin-tool-text); }
+#pin-root .pin-card-action { background: var(--pin-fill); color: var(--pin-secondary); }
 #pin-root .pin-card-comment { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 3; overflow: hidden; color: var(--pin-text); font-size: 13px; font-weight: 500; line-height: 1.5; }
 #pin-root .pin-card-comment-empty { color: var(--pin-secondary); font-style: italic; font-weight: 400; }
 #pin-root .pin-empty { color: var(--pin-secondary); padding: 12px 0; }
@@ -163,7 +163,7 @@
   background: var(--pin-sheen), var(--pin-glass); color: var(--pin-text); box-shadow: var(--pin-shadow);
   -webkit-backdrop-filter: blur(30px) saturate(180%); backdrop-filter: blur(30px) saturate(180%);
 }
-#pin-root .pin-annotation-prompt .pin-button { padding: 7px 10px; font-size: 12px; font-weight: 500; white-space: nowrap; }
+#pin-root .pin-annotation-prompt .pin-button { border: 0; padding: 7px 10px; font-size: 12px; font-weight: 500; white-space: nowrap; }
 #pin-root .pin-mark-picker { display: flex; gap: 3px; padding: 3px; border-radius: 999px; background: var(--pin-tool-fill); }
 #pin-root .pin-annotation-prompt .pin-button:not(.pin-button-primary, [aria-pressed="true"], .pin-annotation-step) { background: var(--pin-tool-fill); color: var(--pin-tool-text); }
 #pin-root .pin-annotation-prompt .pin-annotation-step { background: transparent; color: var(--pin-text); padding-inline: 2px; }

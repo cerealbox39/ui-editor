@@ -307,11 +307,18 @@
   function validPoint(point) {
     return point && Number.isFinite(point.x) && Number.isFinite(point.y);
   }
+  function validBox(box) {
+    return validPoint(box) && Number.isFinite(box.width) && Number.isFinite(box.height) && box.width >= 6 && box.height >= 6;
+  }
+  function validStroke(stroke, mark) {
+    if (!validPoint(stroke?.start) || !validPoint(stroke?.end)) return false;
+    const dx = Math.abs(stroke.end.x - stroke.start.x), dy = Math.abs(stroke.end.y - stroke.start.y);
+    return mark === 'Remove' ? dx >= 6 && dy >= 6 : Math.hypot(dx, dy) >= 6;
+  }
   function validAnnotation(annotation) {
     if (!annotation || !annotationMarks.includes(annotation.mark)) return false;
     const { circle, stroke } = annotation;
-    return validPoint(circle) && Number.isFinite(circle.width) && Number.isFinite(circle.height) && circle.width >= 6 && circle.height >= 6 &&
-      (annotation.mark === 'Highlight' || (validPoint(stroke?.start) && validPoint(stroke?.end) && Math.hypot(stroke.end.x - stroke.start.x, stroke.end.y - stroke.start.y) >= 6));
+    return validBox(circle) && (annotation.mark === 'Highlight' || validStroke(stroke, annotation.mark));
   }
   function validDestination(destination) {
     const element = destination?.element;
@@ -397,7 +404,7 @@
     moveAnnotationDrag(event);
     const { step, start, id, previous } = annotationDrag;
     const end = { x: event.pageX, y: event.pageY }, shape = dragShape(start, end, step);
-    const valid = step === 0 || annotationDraft.mark === 'Remove' ? Math.abs(end.x - start.x) >= 6 && Math.abs(end.y - start.y) >= 6 : Math.hypot(end.x - start.x, end.y - start.y) >= 6;
+    const valid = step === 0 ? validBox(shape) : validStroke(shape, annotationDraft.mark);
     annotationDraft[step === 0 ? 'circle' : 'stroke'] = valid ? shape : previous;
     annotationDrag = null; drawSurface.releasePointerCapture(id);
     if (valid && step === 0) {
@@ -441,14 +448,24 @@
     const relation = x < rect.left ? 'just left of' : x > rect.right ? 'just right of' : y < rect.top ? 'just above' : y > rect.bottom ? 'just below' : 'on';
     return { element: describe(element), label, relation: `${relation} ${label}`, placeholder: short(element.getAttribute('placeholder')) };
   }
-  function annotationPath(annotation) {
-    if (!annotation.stroke || annotation.mark === 'Highlight') return '';
-    const { start, end } = annotation.stroke;
-    if (annotation.mark === 'Remove') return `M${start.x} ${start.y}L${end.x} ${end.y}M${start.x} ${end.y}L${end.x} ${start.y}`;
+  function linePath(start, end) {
+    return `M${start.x} ${start.y}L${end.x} ${end.y}`;
+  }
+  function arrowPath(start, end) {
     const length = Math.hypot(end.x - start.x, end.y - start.y);
     if (length < 1) return '';
     const x = (end.x - start.x) / length, y = (end.y - start.y) / length;
-    return `M${start.x} ${start.y}L${end.x} ${end.y}M${end.x - x * 13 - y * 7} ${end.y - y * 13 + x * 7}L${end.x} ${end.y}L${end.x - x * 13 + y * 7} ${end.y - y * 13 - x * 7}`;
+    const headLength = 13, headHalfWidth = 7;
+    const base = { x: end.x - x * headLength, y: end.y - y * headLength };
+    const left = { x: base.x - y * headHalfWidth, y: base.y + x * headHalfWidth };
+    const right = { x: base.x + y * headHalfWidth, y: base.y - x * headHalfWidth };
+    return linePath(start, end) + linePath(left, end) + linePath(end, right);
+  }
+  function annotationPath(annotation) {
+    if (!annotation.stroke || annotation.mark === 'Highlight') return '';
+    const { start, end } = annotation.stroke;
+    if (annotation.mark === 'Remove') return linePath(start, end) + linePath({ x: start.x, y: end.y }, { x: end.x, y: start.y });
+    return arrowPath(start, end);
   }
   function drawAnnotation(annotation, index, pin) {
     const group = svgElement('g', { class: `pin-annotation${annotation.mark === 'Remove' ? ' pin-annotation-remove' : ''}`, ...(pin ? { 'data-note-id': pin.id } : { 'data-draft': '' }) }, annotationCanvas);
@@ -691,7 +708,7 @@
     const rect = element?.isConnected ? element.getBoundingClientRect() : null;
     if (!rect?.width || !rect.height || rect.right <= 0 || rect.bottom <= 0 || rect.left >= document.documentElement.clientWidth || rect.top >= document.documentElement.clientHeight) { resetHover(); return; }
     const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
-    const label = short(element.getAttribute('aria-label') || controlValue(element) || element.textContent) || 'Selected element';
+    const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
     outline.classList.toggle('pin-outline-selected', Boolean(editing));
     if (outline.hidden) outline.hidden = false;
     for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
