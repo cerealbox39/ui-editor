@@ -11,6 +11,8 @@
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
   const drafts = new Map();
   let uiActions = defaultUIActions, actionDraft = null;
+  const annotationMarks = ['Move', 'Remove', 'Highlight'];
+  let annotationDraft = null, annotationSource = null, annotationDrag = null, annotationStep = 0;
 
   try {
     const stored = JSON.parse(localStorage.getItem(actionsStorageKey));
@@ -38,6 +40,8 @@
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
       if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string') migrateStorage = true;
       const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? pin.uiAction : '', comment: migratedComment };
+      if (!validAnnotation(migrated.annotation)) delete migrated.annotation;
+      else if (!validDestination(migrated.annotation.destination)) delete migrated.annotation.destination;
       legacyFields.forEach(key => { delete migrated[key]; });
       return migrated;
     });
@@ -69,6 +73,10 @@
   const toggle = button('◎ App feedback', root, () => setActive(!active));
   toggle.classList.add('pin-toggle'); toggle.setAttribute('aria-pressed', 'false');
   const markerLayer = make('div', 'marker-layer');
+  const annotationLayer = svgElement('svg', { class: 'pin-annotation-layer', 'aria-label': 'Feedback annotations' }, root);
+  const annotationCanvas = svgElement('g', {}, annotationLayer);
+  const drawSurface = make('div', 'draw-surface'); drawSurface.hidden = true;
+  drawSurface.setAttribute('aria-label', 'Draw annotation by dragging; choose a step to redraw');
   const savedMarkers = new Map();
   let markerFrame = null;
   const outline = make('div', 'outline'); outline.hidden = true;
@@ -99,13 +107,36 @@
   editActions.classList.add('pin-action-pencil'); editActions.setAttribute('aria-label', 'Edit UI quick actions'); editActions.title = 'Edit quick actions';
   buttonIcon(editActions, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
   const intentChips = make('div', 'chips', undefined, intentGroup);
-  const emptyActions = make('p', 'hint', 'No quick actions yet.', intentGroup);
+  const emptyActions = make('p', 'hint', 'Add more actions with the pencil.', intentGroup);
   const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
   const save = button('Save', actions, () => {}); save.type = 'submit'; save.classList.add('pin-button-primary');
   button('Cancel', actions, closeEditor);
   const remove = button('Delete', actions, () => { pins = pins.filter(pin => pin.id !== editing); closeEditor(); changed(); });
   remove.classList.add('pin-button-danger');
+
+  const annotationPrompt = make('section', 'annotation-prompt'); annotationPrompt.hidden = true;
+  annotationPrompt.setAttribute('aria-label', 'Annotate');
+  const markPicker = make('div', 'mark-picker', undefined, annotationPrompt);
+  markPicker.setAttribute('role', 'group'); markPicker.setAttribute('aria-label', 'Annotation mark');
+  const markIcons = ['M3 13 13 3M5 3h8v8', 'm4 4 8 8M12 4l-8 8', 'M14 8a6 4.5 0 1 1-12 0 6 4.5 0 1 1 12 0'];
+  const markButtons = annotationMarks.map((mark, index) => {
+    const control = button(mark, markPicker, () => chooseMark(mark));
+    buttonIcon(control, markIcons[index]); return control;
+  });
+  const circleStep = button('', annotationPrompt, () => { annotationStep = 0; updateAnnotationPrompt(); });
+  circleStep.classList.add('pin-annotation-step'); circleStep.title = 'Drag to draw or redraw the circle';
+  const stepDivider = make('span', 'step-divider', '·', annotationPrompt);
+  const detailStep = button('', annotationPrompt, () => { if (annotationDraft?.circle) { annotationStep = 1; updateAnnotationPrompt(); } });
+  detailStep.classList.add('pin-annotation-step'); detailStep.title = 'Drag to draw or redraw the second mark';
+  const annotationControls = make('div', 'annotation-controls', undefined, annotationPrompt);
+  button('Cancel', annotationControls, cancelAnnotation);
+  const annotationSave = button('Save', annotationControls, saveAnnotation); annotationSave.classList.add('pin-button-primary');
+  drawSurface.addEventListener('pointerdown', startAnnotationDrag);
+  drawSurface.addEventListener('pointermove', moveAnnotationDrag);
+  drawSurface.addEventListener('pointerup', endAnnotationDrag);
+  drawSurface.addEventListener('pointercancel', cancelAnnotationDrag);
+  drawSurface.addEventListener('lostpointercapture', cancelAnnotationDrag);
 
   const actionSettings = make('div', 'action-settings', undefined, editor); actionSettings.hidden = true;
   const actionTitle = make('h2', 'heading', 'Edit quick actions', actionSettings); actionTitle.tabIndex = -1;
@@ -134,7 +165,9 @@
     // Keep the label on existing feedback, even if the action is no longer offered.
     const names = uiAction && !uiActions.includes(uiAction) ? [...uiActions, uiAction] : uiActions;
     intentChips.replaceChildren();
-    names.forEach(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+    names.filter(value => value !== 'Annotate').forEach(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+    const annotate = button('Annotate', intentChips, beginAnnotation); annotate.classList.add('pin-annotate');
+    buttonIcon(annotate, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
     emptyActions.hidden = Boolean(names.length);
   }
   function refreshFields() {
@@ -229,10 +262,18 @@
     event.preventDefault();
     if (actionDraft) { saveActionSettings(); return; }
     const values = { issueType, uiAction: issueType === 'UI/UX' ? uiAction : '', comment: comment.control.value };
-    if (editing) Object.assign(pins.find(pin => pin.id === editing) || {}, values);
-    else if (target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: describe(target), ...values });
-    closeEditor(); changed();
+    saveFeedback(values);
   });
+  function saveFeedback(values, element) {
+    if (editing) {
+      const pin = pins.find(pin => pin.id === editing);
+      if (pin) {
+        Object.assign(pin, values);
+        if (pin.annotation && pin.uiAction !== pin.annotation.mark) delete pin.annotation;
+      }
+    } else if (element || target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: element || describe(target), ...values });
+    closeEditor(); changed();
+  }
 
   function pageMatches(selector) { return [...document.querySelectorAll(selector)].filter(element => !root.contains(element)); }
   function count(selector) { try { return pageMatches(selector).length; } catch (_) { return 0; } }
@@ -269,6 +310,213 @@
     return { ...selector, tag: element.localName, classes: [...element.classList], displayedValue: short(controlValue(element) || element.textContent), tableContext: tableContext(element), ...(selector.selectorConfidence === 'low' ? { parentChain: parent ? [{ tag: parent.localName, classes: [...parent.classList] }] : [], nearbyText: short(parent?.textContent) } : {}) };
   }
 
+  function validPoint(point) {
+    return point && Number.isFinite(point.x) && Number.isFinite(point.y);
+  }
+  function validBox(box) {
+    return validPoint(box) && Number.isFinite(box.width) && Number.isFinite(box.height) && box.width >= 6 && box.height >= 6;
+  }
+  function validStroke(stroke, mark) {
+    if (!validPoint(stroke?.start) || !validPoint(stroke?.end)) return false;
+    const dx = Math.abs(stroke.end.x - stroke.start.x), dy = Math.abs(stroke.end.y - stroke.start.y);
+    return mark === 'Remove' ? dx >= 6 && dy >= 6 : Math.hypot(dx, dy) >= 6;
+  }
+  function validAnnotation(annotation) {
+    if (!annotation || !annotationMarks.includes(annotation.mark)) return false;
+    const { circle, stroke } = annotation;
+    return validBox(circle) && (annotation.mark === 'Highlight' || validStroke(stroke, annotation.mark));
+  }
+  function validDestination(destination) {
+    const element = destination?.element;
+    return element && typeof element.tag === 'string' && typeof element.selector === 'string' && Array.isArray(element.classes) && element.classes.every(name => typeof name === 'string') &&
+      typeof destination.label === 'string' && typeof destination.relation === 'string' && typeof destination.placeholder === 'string';
+  }
+  function svgElement(tag, attributes, parent) {
+    const element = document.createElementNS('http://www.w3.org/2000/svg', tag);
+    Object.entries(attributes).forEach(([key, value]) => element.setAttribute(key, value));
+    parent.append(element); return element;
+  }
+  function beginAnnotation() {
+    if (!target?.isConnected || actionDraft) return;
+    annotationSource = describe(target);
+    annotationDraft = { mark: 'Move', circle: null, stroke: null };
+    annotationStep = 0;
+    intentChips.querySelector('.pin-annotate').setAttribute('aria-pressed', 'true');
+    editor.hidden = true; panel.hidden = true; drawSurface.hidden = false; annotationPrompt.hidden = false;
+    root.classList.add('pin-annotating'); resetHover();
+    updateAnnotationPrompt(); renderAnnotations(); circleStep.focus();
+  }
+  function chooseMark(mark) {
+    if (!annotationDraft || annotationDrag) return;
+    if (mark !== annotationDraft.mark) {
+      annotationDraft.mark = mark; annotationDraft.stroke = null; delete annotationDraft.destination;
+      annotationStep = annotationDraft.circle && mark !== 'Highlight' ? 1 : 0;
+    }
+    updateAnnotationPrompt(); renderAnnotations();
+  }
+  function updateAnnotationPrompt() {
+    if (!annotationDraft) return;
+    const { mark, circle, stroke } = annotationDraft, single = mark === 'Highlight';
+    markButtons.forEach((control, index) => { control.setAttribute('aria-pressed', String(annotationMarks[index] === mark)); control.disabled = Boolean(annotationDrag); });
+    circleStep.textContent = `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
+    detailStep.textContent = `${stroke ? '✓ ' : ''}2 ${mark === 'Remove' ? 'Draw an X over it' : 'Draw an arrow to where it should go'}`;
+    circleStep.setAttribute('aria-current', annotationStep === 0 ? 'step' : 'false');
+    detailStep.setAttribute('aria-current', annotationStep === 1 ? 'step' : 'false');
+    circleStep.disabled = Boolean(annotationDrag); detailStep.disabled = !circle || Boolean(annotationDrag);
+    detailStep.hidden = single; stepDivider.hidden = single;
+    annotationSave.disabled = Boolean(annotationDrag) || !validAnnotation(annotationDraft);
+  }
+  function clearAnnotationMode() {
+    if (annotationDrag) cancelAnnotationDrag();
+    annotationDraft = null; annotationSource = null;
+    annotationPrompt.hidden = true; drawSurface.hidden = true; panel.hidden = !active;
+    root.classList.remove('pin-annotating'); renderAnnotations();
+  }
+  function cancelAnnotation() {
+    if (!annotationDraft) return;
+    clearAnnotationMode(); refreshFields(); editor.hidden = false;
+    placeEditor(target?.getBoundingClientRect()); showOutline(target); comment.control.focus();
+  }
+  function saveAnnotation() {
+    if (annotationDrag || !validAnnotation(annotationDraft)) return;
+    const annotation = { ...annotationDraft }, source = annotationSource;
+    if (annotation.mark === 'Move') annotation.destination = moveDestination(annotation.stroke.end) || annotation.destination;
+    const name = source.displayedValue || source.tag;
+    const generated = annotation.mark === 'Move' ? `Move “${name}” ${annotation.destination ? `next to ${annotation.destination.label}` : 'to the marked spot'}` :
+      annotation.mark === 'Remove' ? `Remove “${name}”` : `Look at “${name}”`;
+    const values = { issueType, uiAction: annotation.mark, comment: comment.control.value.trim() ? comment.control.value : generated, annotation };
+    clearAnnotationMode(); saveFeedback(values, source);
+  }
+  function dragShape(start, end, step) {
+    return step === 0 ? { x: Math.min(start.x, end.x), y: Math.min(start.y, end.y), width: Math.abs(end.x - start.x), height: Math.abs(end.y - start.y) } : { start, end };
+  }
+  function startAnnotationDrag(event) {
+    if (!annotationDraft || annotationDrag || !event.isPrimary || event.button !== 0) return;
+    event.preventDefault();
+    const key = annotationStep === 0 ? 'circle' : 'stroke';
+    annotationDrag = { id: event.pointerId, start: { x: event.pageX, y: event.pageY }, step: annotationStep, previous: annotationDraft[key] };
+    drawSurface.setPointerCapture(event.pointerId);
+    updateAnnotationPrompt();
+  }
+  function moveAnnotationDrag(event) {
+    if (!annotationDrag || event.pointerId !== annotationDrag.id) return;
+    event.preventDefault();
+    const { start, step } = annotationDrag;
+    annotationDraft[step === 0 ? 'circle' : 'stroke'] = dragShape(start, { x: event.pageX, y: event.pageY }, step);
+    renderAnnotations();
+  }
+  function endAnnotationDrag(event) {
+    if (!annotationDrag || event.pointerId !== annotationDrag.id) return;
+    moveAnnotationDrag(event);
+    const { step, start, id, previous } = annotationDrag;
+    const end = { x: event.pageX, y: event.pageY }, shape = dragShape(start, end, step);
+    const valid = step === 0 ? validBox(shape) : validStroke(shape, annotationDraft.mark);
+    annotationDraft[step === 0 ? 'circle' : 'stroke'] = valid ? shape : previous;
+    annotationDrag = null; drawSurface.releasePointerCapture(id);
+    if (valid && step === 0) {
+      annotationDraft.stroke = null; delete annotationDraft.destination;
+      annotationStep = annotationDraft.mark === 'Highlight' ? 0 : 1;
+    } else if (valid && annotationDraft.mark === 'Move') annotationDraft.destination = moveDestination(end);
+    updateAnnotationPrompt(); renderAnnotations();
+  }
+  function cancelAnnotationDrag(event) {
+    if (!annotationDrag || (event && event.pointerId !== annotationDrag.id)) return;
+    const { id, step, previous } = annotationDrag;
+    annotationDraft[step === 0 ? 'circle' : 'stroke'] = previous;
+    annotationDrag = null;
+    if (drawSurface.hasPointerCapture(id)) drawSurface.releasePointerCapture(id);
+    updateAnnotationPrompt(); renderAnnotations();
+  }
+  function destinationName(element) {
+    if (element.matches('input[type="search"], [role="searchbox"]') || /search/i.test(element.getAttribute('placeholder') || '')) return 'the search field';
+    const name = short(element.getAttribute('aria-label') || element.getAttribute('placeholder') || element.labels?.[0]?.textContent || element.textContent);
+    if (element.matches('input, textarea')) return name ? `the “${name}” field` : 'the input field';
+    if (element.matches('select')) return name ? `the “${name}” dropdown` : 'the dropdown';
+    if (element.matches('button, [role="button"]')) return name ? `the “${name}” button` : 'the button';
+    return name ? `“${name}”` : `the ${element.localName} element`;
+  }
+  function moveDestination(point) {
+    const x = point.x - scrollX, y = point.y - scrollY;
+    if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
+    const hits = document.elementsFromPoint(x, y).filter(element => !root.contains(element));
+    const controls = 'input:not([type="hidden"]), textarea, select, button, a[href], [role="button"], [role="searchbox"]';
+    let element = hits[0]?.closest(controls);
+    if (!element) {
+      const nearest = pageMatches(controls).map(control => {
+        const rect = control.getBoundingClientRect();
+        const distance = Math.hypot(Math.max(rect.left - x, 0, x - rect.right), Math.max(rect.top - y, 0, y - rect.bottom));
+        return { control, distance, visible: rect.width && rect.height && getComputedStyle(control).visibility !== 'hidden' };
+      }).filter(item => item.visible && item.distance <= 96).sort((a, b) => a.distance - b.distance)[0];
+      element = nearest?.control || hits.find(hit => !hit.matches('html, body'));
+    }
+    if (!element) return null;
+    const rect = element.getBoundingClientRect(), label = destinationName(element);
+    const relation = x < rect.left ? 'just left of' : x > rect.right ? 'just right of' : y < rect.top ? 'just above' : y > rect.bottom ? 'just below' : 'on';
+    return { element: describe(element), label, relation: `${relation} ${label}`, placeholder: short(element.getAttribute('placeholder')) };
+  }
+  function linePath(start, end) {
+    return `M${start.x} ${start.y}L${end.x} ${end.y}`;
+  }
+  function arrowPath(start, end) {
+    const length = Math.hypot(end.x - start.x, end.y - start.y);
+    if (length < 1) return '';
+    const x = (end.x - start.x) / length, y = (end.y - start.y) / length;
+    const headLength = 13, headHalfWidth = 7;
+    const base = { x: end.x - x * headLength, y: end.y - y * headLength };
+    const left = { x: base.x - y * headHalfWidth, y: base.y + x * headHalfWidth };
+    const right = { x: base.x + y * headHalfWidth, y: base.y - x * headHalfWidth };
+    return linePath(start, end) + linePath(left, end) + linePath(end, right);
+  }
+  function annotationPath(annotation) {
+    if (!annotation.stroke || annotation.mark === 'Highlight') return '';
+    const { start, end } = annotation.stroke;
+    if (annotation.mark === 'Remove') return linePath(start, end) + linePath({ x: start.x, y: end.y }, { x: end.x, y: start.y });
+    return arrowPath(start, end);
+  }
+  function drawAnnotation(annotation, index, pin) {
+    const group = svgElement('g', { class: `pin-annotation${annotation.mark === 'Remove' ? ' pin-annotation-remove' : ''}`, ...(pin ? { 'data-note-id': pin.id } : { 'data-draft': '' }) }, annotationCanvas);
+    const circle = annotation.circle;
+    if (!circle) return;
+    const cx = circle.x + circle.width / 2, cy = circle.y + circle.height / 2;
+    svgElement('ellipse', { cx, cy, rx: circle.width / 2, ry: circle.height / 2, class: 'pin-annotation-circle' }, group);
+    const path = annotationPath(annotation);
+    if (path) {
+      svgElement('path', { d: path, class: 'pin-annotation-halo' }, group);
+      svgElement('path', { d: path, class: 'pin-annotation-stroke' }, group);
+    }
+    const dot = svgElement('g', { class: 'pin-annotation-dot', transform: `translate(${cx - circle.width * .36} ${cy - circle.height * .36})` }, group);
+    svgElement('circle', { r: 10 }, dot);
+    svgElement('text', { 'text-anchor': 'middle', dy: '.35em' }, dot).textContent = String(index + 1);
+    if (pin) {
+      dot.setAttribute('role', 'button'); dot.setAttribute('tabindex', '0'); dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
+      dot.addEventListener('click', () => highlightCard(pin));
+      dot.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); highlightCard(pin); } });
+    }
+  }
+  function positionAnnotations() {
+    annotationLayer.setAttribute('viewBox', `0 0 ${innerWidth} ${innerHeight}`);
+    annotationCanvas.setAttribute('transform', `translate(${-scrollX} ${-scrollY})`);
+  }
+  function renderAnnotations() {
+    annotationCanvas.replaceChildren(); annotationLayer.style.display = active ? '' : 'none';
+    if (!active) return;
+    pins.forEach((pin, index) => { if (pin.annotation && !(annotationDraft && pin.id === editing)) drawAnnotation(pin.annotation, index, pin); });
+    if (annotationDraft) drawAnnotation(annotationDraft, editing ? pins.findIndex(pin => pin.id === editing) : pins.length);
+    positionAnnotations();
+  }
+  function annotationElement(element) {
+    return `${element.tag}${element.classes.map(name => `.${name}`).join('')}${element.displayedValue ? ` “${element.displayedValue}”` : ''}`;
+  }
+  function annotationReport(annotation, element) {
+    const source = inline(annotationElement(element));
+    if (annotation.mark !== 'Move') return `${annotation.mark}: ${source}.`;
+    const destination = annotation.destination;
+    if (!destination?.element || !destination.relation) return `Move: ${source} to the marked spot.`;
+    const selector = '`' + destination.element.selector.replace(/`/g, '\\`') + '`';
+    const placeholder = destination.placeholder ? `; placeholder “${inline(destination.placeholder)}”` : '';
+    return `Move: ${source} to ${inline(destination.relation)} (${selector}${placeholder}).`;
+  }
+
   const elementLabel = element => `${element.tag}${element.classes[0] ? '.' + element.classes[0] : element.displayedValue ? ' ' + element.displayedValue : ''}`.trim();
   const inline = value => String(value || '').replace(/\s+/g, ' ').replace(/[\\`*_\[\]<>]/g, '\\$&');
   const present = value => String(value || '').trim();
@@ -276,10 +524,12 @@
     const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `- Page: ${pageURL}`];
     pins.forEach((pin, index) => {
       const element = pin.element;
-      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${inline(pin.uiAction)}` : pin.issueType;
+      const intent = pin.annotation?.mark || pin.uiAction;
+      const kind = pin.issueType === 'UI/UX' && intent ? `${pin.issueType} / ${inline(intent)}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
+      if (pin.annotation) lines.push(`- ${annotationReport(pin.annotation, element)}`);
       if (['Data', 'New Feature'].includes(pin.issueType) && element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
       if (element.selectorConfidence === 'low') {
         const parent = element.parentChain?.[0];
@@ -340,12 +590,12 @@
       }
       const card = item.firstChild, [number, tags, text] = card.children, [type, action] = tags.children;
       const request = short(pin.comment);
-      const parts = { number: String(index + 1), type: pin.issueType, action: pin.uiAction || '', text: request || 'No comment' };
+      const parts = { number: String(index + 1), type: pin.issueType, action: pin.annotation?.mark || pin.uiAction || '', text: request || 'No comment' };
       [[number, parts.number], [type, parts.type], [action, parts.action], [text, parts.text]].forEach(([element, content]) => { if (element.textContent !== content) element.textContent = content; });
       const label = `${parts.number}. ${[parts.type, parts.action].filter(Boolean).join(', ')}: ${parts.text}`;
       if (card.getAttribute('aria-label') !== label) card.setAttribute('aria-label', label);
       if (card.dataset.type !== pin.issueType) card.dataset.type = pin.issueType;
-      if (action.hidden === Boolean(pin.uiAction)) action.hidden = !pin.uiAction;
+      if (action.hidden === Boolean(parts.action)) action.hidden = !parts.action;
       text.classList.toggle('pin-card-comment-empty', !request);
     });
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
@@ -418,8 +668,10 @@
   function renderSavedMarkers() {
     markerLayer.replaceChildren();
     savedMarkers.clear();
+    renderAnnotations();
     if (!active) return;
     pins.forEach((pin, index) => {
+      if (pin.annotation) return;
       const element = savedPinTarget(pin.element.selector);
       if (!element) return;
       if (!savedMarkers.has(element)) savedMarkers.set(element, make('div', 'marker-group', undefined, markerLayer));
@@ -466,7 +718,7 @@
   function renderHover() {
     hoverFrame = null;
     const element = hoverTarget; hoverTarget = null;
-    if (active && editor.hidden) showOutline(element);
+    if (active && editor.hidden && !annotationDraft) showOutline(element);
   }
   function showOutline(element) {
     const rect = element?.isConnected ? element.getBoundingClientRect() : null;
@@ -485,13 +737,16 @@
     outlineStyle = style; outlineText = label;
   }
   function hover(event) {
-    if (!active || !editor.hidden) return;
+    if (!active || !editor.hidden || annotationDraft) return;
     if (!(event.target instanceof Element) || root.contains(event.target)) { resetHover(); return; }
     hoverTarget = event.target;
     if (hoverFrame === null) hoverFrame = requestAnimationFrame(renderHover);
   }
-  function intercept(event) { if (!active || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
+  function intercept(event) { if (!active || annotationDraft || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
   function setActive(value) {
+    if (annotationDraft) {
+      cancelAnnotation(); drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value });
+    }
     active = value; panel.hidden = !value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
     clearCardHighlight();
     renderSavedMarkers();
@@ -502,13 +757,15 @@
     if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); }
     else if (event.key === 'Escape' && active) {
       event.preventDefault();
-      if (actionDraft) returnToFeedback();
+      if (annotationDraft) cancelAnnotation();
+      else if (actionDraft) returnToFeedback();
       else if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); }
       else setActive(false);
     }
   });
   window.addEventListener('scroll', () => {
-    if (editor.hidden) resetHover(); else showOutline(target);
+    if (editor.hidden || annotationDraft) resetHover(); else showOutline(target);
+    positionAnnotations();
     scheduleMarkerPosition();
   }, true);
   function fitVisualViewport() {
@@ -521,7 +778,7 @@
   globalThis.visualViewport?.addEventListener('scroll', fitVisualViewport);
   fitVisualViewport();
   window.addEventListener('resize', () => {
-    resetHover(); scheduleMarkerPosition();
+    resetHover(); scheduleMarkerPosition(); positionAnnotations();
     if (!editor.hidden) { placeEditor(target?.getBoundingClientRect()); showOutline(target); }
   });
   render();

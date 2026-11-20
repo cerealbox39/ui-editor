@@ -46,6 +46,22 @@ This version supports:
 - Compact agent-ready reports with the page URL, exact selector, visible text, and requested change
 - Extra parent or nearby-text context only when selector confidence is low
 
+### Annotate a change
+
+Select an element in inspect mode, then choose **Annotate** (pencil) in the **UI Quick Actions** row. The editor and feedback list move out of the way; your issue type, chosen action, and comment stay in the draft.
+
+- **Move**: drag a circle around the element, then drag a straight arrow to where it should go.
+- **Remove**: drag a circle, then drag diagonally across it to draw an X.
+- **Highlight**: drag a circle only.
+
+Use a mouse, pen, or touch. Circles fit the drag box. Choose a step in the top prompt to redraw it; another drag replaces that step's mark. Switching mark type keeps the circle and clears the second mark. **Save** becomes available when all required steps are complete.
+
+**Save** creates a normal numbered feedback note with a Move, Remove, or Highlight action. Your comment is kept; if empty, a plain request is generated. For Move, the arrowhead identifies a nearby page element and relative position (for example, just left of the search field). **Copy all** and auto-copy include this context and selectors in the Markdown report, not on screen. No screenshots are captured or attached.
+
+**Cancel** or **Escape** discards the new marks and returns to your unchanged editor draft. **Exit inspect** or **Alt+Shift+P** also cancels annotation and retains the draft for when you select that element again.
+
+Marks and numbered dots are stored with their notes in this browser for the exact page URL, restored after reload, and shown in inspect mode. They use document coordinates, so they stay in place when you scroll (they do not follow elements after page layout changes). Deleting a note or using **Clear all** removes its marks; editing an existing note and choosing Annotate replaces its marks only when saved.
+
 ## Try it
 
 `demo/` holds a fake Northline Orders dashboard with the overlay already loaded. Run `python3 demo/server.py 8080` from the repo root and open `http://localhost:8080/` (it adds `pin=1` for you).
