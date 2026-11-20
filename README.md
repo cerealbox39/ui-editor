@@ -2,6 +2,10 @@
 
 Dependency-free UI and application feedback overlay for local development and protected preview environments.
 
+[![Watch the UI Editor launch film (41s)](docs/ui-editor-launch.png)](docs/ui-editor-launch.mp4)
+
+▶ [Watch the 41-second launch film](docs/ui-editor-launch.mp4)
+
 ## Install
 
 Easiest method:
