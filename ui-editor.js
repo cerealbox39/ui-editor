@@ -264,8 +264,13 @@
     saveFeedback(values);
   });
   function saveFeedback(values, element) {
-    if (editing) Object.assign(pins.find(pin => pin.id === editing) || {}, values);
-    else if (element || target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: element || describe(target), ...values });
+    if (editing) {
+      const pin = pins.find(pin => pin.id === editing);
+      if (pin) {
+        Object.assign(pin, values);
+        if (pin.annotation && pin.uiAction !== pin.annotation.mark) delete pin.annotation;
+      }
+    } else if (element || target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: element || describe(target), ...values });
     closeEditor(); changed();
   }
 
