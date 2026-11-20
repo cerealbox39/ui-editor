@@ -3,11 +3,21 @@
   if (new URLSearchParams(location.search).get('pin') !== '1' || document.getElementById('pin-root')) return;
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
-  const uiActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
+  const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
+  const actionsStorageKey = 'pin-overlay:quick-actions';
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
   const drafts = new Map();
+  let uiActions = defaultUIActions, actionDraft = null;
+
+  try {
+    const stored = JSON.parse(localStorage.getItem(actionsStorageKey));
+    if (Array.isArray(stored) && stored.every(name => typeof name === 'string' && name.trim())) {
+      const names = stored.map(name => name.trim());
+      if (new Set(names.map(name => name.toLowerCase())).size === names.length) uiActions = names;
+    }
+  } catch (_) { /* Storage may be unavailable. */ }
 
   try {
     const stored = JSON.parse(localStorage.getItem(storageKey) || '[]');
@@ -26,7 +36,7 @@
       if (oldType && !issueTypes.includes(oldType) && !legacyTypes[oldType]) addLine('Previous issue type', oldType);
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
       if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string') migrateStorage = true;
-      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && uiActions.includes(pin.uiAction) ? pin.uiAction : '', comment: migratedComment };
+      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? pin.uiAction : '', comment: migratedComment };
       legacyFields.forEach(key => { delete migrated[key]; });
       return migrated;
     });
@@ -41,6 +51,12 @@
   };
   const button = (text, parent, handler) => {
     const element = make('button', 'button', text, parent); element.type = 'button'; element.addEventListener('click', handler); return element;
+  };
+  const buttonIcon = (control, pathData) => {
+    const ns = 'http://www.w3.org/2000/svg';
+    const svg = document.createElementNS(ns, 'svg'), path = document.createElementNS(ns, 'path');
+    svg.setAttribute('viewBox', '0 0 16 16'); svg.setAttribute('aria-hidden', 'true'); svg.classList.add('pin-action-icon');
+    path.setAttribute('d', pathData); svg.append(path); control.prepend(svg);
   };
   const field = (label, control) => {
     const wrapper = make('label', 'field', undefined, editor); make('span', 'field-label', label, wrapper); wrapper.append(control); return wrapper;
@@ -76,25 +92,141 @@
   let issueType = 'UI/UX', uiAction = '';
   const typeButtons = issueTypes.map(value => button(value, typeChips, () => { issueType = value; refreshFields(); }));
   const intentGroup = make('div', 'quick-actions', undefined, editor);
-  make('span', 'field-label', 'UI Quick Actions', intentGroup);
+  const intentHeader = make('div', 'quick-action-header', undefined, intentGroup);
+  make('span', 'field-label', 'UI Quick Actions', intentHeader);
+  const editActions = button('', intentHeader, openActionSettings);
+  editActions.classList.add('pin-action-pencil'); editActions.setAttribute('aria-label', 'Edit UI quick actions'); editActions.title = 'Edit quick actions';
+  buttonIcon(editActions, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
   const intentChips = make('div', 'chips', undefined, intentGroup);
-  const intentButtons = uiActions.map(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+  const emptyActions = make('p', 'hint', 'No quick actions yet.', intentGroup);
   const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
   const save = button('Save', actions, () => {}); save.type = 'submit'; save.classList.add('pin-button-primary');
   button('Cancel', actions, closeEditor);
   const remove = button('Delete', actions, () => { pins = pins.filter(pin => pin.id !== editing); closeEditor(); changed(); });
   remove.classList.add('pin-button-danger');
+
+  const actionSettings = make('div', 'action-settings', undefined, editor); actionSettings.hidden = true;
+  const actionTitle = make('h2', 'heading', 'Edit quick actions', actionSettings); actionTitle.tabIndex = -1;
+  make('p', 'action-description', 'Rename, add, or remove buttons.', actionSettings);
+  const actionRows = make('div', 'action-rows', undefined, actionSettings);
+  const actionTools = make('div', 'action-tools', undefined, actionSettings);
+  const addAction = button('Add action', actionTools, () => {
+    actionDraft.push({ name: '' });
+    renderActionRows(actionDraft.length - 1);
+  });
+  buttonIcon(addAction, 'M8 3.5v9m-4.5-4.5h9');
+  button('Restore to default', actionTools, () => {
+    actionDraft = defaultUIActions.map(name => ({ name, originalName: name }));
+    renderActionRows();
+  });
+  const settingsControls = make('div', 'controls', undefined, actionSettings);
+  const saveActions = button('Save actions', settingsControls, () => {});
+  saveActions.classList.add('pin-button-primary');
+  button('Cancel', settingsControls, returnToFeedback);
+  actionRows.addEventListener('input', () => {
+    actionRows.querySelectorAll('input:invalid').forEach(input => input.setCustomValidity(''));
+  });
   document.body.append(root);
 
+  function renderIntentChips() {
+    // Keep the label on existing feedback, even if the action is no longer offered.
+    const names = uiAction && !uiActions.includes(uiAction) ? [...uiActions, uiAction] : uiActions;
+    intentChips.replaceChildren();
+    names.forEach(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+    emptyActions.hidden = Boolean(names.length);
+  }
   function refreshFields() {
     typeButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(issueTypes[index] === issueType)));
-    intentButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(uiActions[index] === uiAction)));
+    Array.from(intentChips.children).forEach(item => item.setAttribute('aria-pressed', String(item.textContent === uiAction)));
     intentGroup.hidden = issueType !== 'UI/UX';
+  }
+
+  function renderActionRows(focusIndex) {
+    actionRows.replaceChildren();
+    if (!actionDraft.length) make('p', 'hint', 'No quick actions yet.', actionRows);
+    let focus;
+    actionDraft.forEach((action, index) => {
+      const row = make('div', 'action-row', undefined, actionRows);
+      let control;
+      if (action.removed) {
+        const name = action.name.trim();
+        row.classList.add('pin-action-removed');
+        make('span', 'action-removed-label', name ? `${name} removed` : 'New action removed', row);
+        control = button('Undo', row, () => { action.removed = false; renderActionRows(index); });
+        control.classList.add('pin-action-undo'); control.setAttribute('aria-label', `Undo removal: ${name || 'new action'}`);
+      } else {
+        const input = make('input', 'action-name', undefined, row);
+        input.type = 'text'; input.value = action.name; input.placeholder = 'Action name';
+        input.setAttribute('aria-label', `Action name ${index + 1}`);
+        if (action.originalName === undefined) make('span', 'action-new', 'New', row);
+        const discard = button('', row, () => { action.removed = true; renderActionRows(index); });
+        const labelRemove = () => {
+          const name = action.name.trim();
+          discard.title = name ? `Remove action: ${name}` : 'Remove new action';
+          discard.setAttribute('aria-label', discard.title);
+        };
+        discard.classList.add('pin-action-discard'); labelRemove();
+        input.addEventListener('input', () => { action.name = input.value; labelRemove(); });
+        buttonIcon(discard, 'M2.6 4.7h10.8M6 4.7V3.3a.7.7 0 0 1 .7-.7h2.6a.7.7 0 0 1 .7.7v1.4m2 0-.6 7.8a1.1 1.1 0 0 1-1.1 1H5.7a1.1 1.1 0 0 1-1.1-1L4 4.7M6.6 7v3.8m2.8-3.8v3.8');
+        control = input;
+      }
+      if (index === focusIndex) focus = control;
+    });
+    placeEditor(target?.getBoundingClientRect());
+    focus?.focus();
+  }
+  function openActionSettings() {
+    actionDraft = uiActions.map(name => ({ name, originalName: name }));
+    actionSettings.hidden = false; editor.classList.add('pin-editing-actions');
+    editor.setAttribute('aria-label', 'Edit quick actions');
+    save.type = 'button'; saveActions.type = 'submit';
+    editor.scrollTop = 0;
+    renderActionRows();
+    actionTitle.focus({ preventScroll: true });
+  }
+  function closeActionSettings() {
+    actionDraft = null; actionSettings.hidden = true; editor.classList.remove('pin-editing-actions');
+    editor.setAttribute('aria-label', 'Edit feedback');
+    save.type = 'submit'; saveActions.type = 'button';
+    actionRows.replaceChildren();
+  }
+  function returnToFeedback() {
+    closeActionSettings();
+    renderIntentChips(); refreshFields();
+    placeEditor(target?.getBoundingClientRect());
+    editActions.focus();
+  }
+  function saveActionSettings() {
+    const remaining = actionDraft.filter(action => !action.removed);
+    const names = remaining.map(action => action.name.trim());
+    const inputs = actionRows.querySelectorAll('input');
+    const seen = new Set();
+    for (const [index, name] of names.entries()) {
+      const key = name.toLowerCase();
+      if (!name || seen.has(key)) {
+        inputs[index].setCustomValidity(name ? 'Use a different name for each action.' : 'Enter an action name.');
+        inputs[index].reportValidity();
+        return;
+      }
+      seen.add(key);
+    }
+    if (!editing && uiActions.includes(uiAction)) {
+      const selected = remaining.find(action => action.originalName === uiAction);
+      uiAction = selected?.name.trim() ?? '';
+    }
+    uiActions = names;
+    try {
+      if (names.length === defaultUIActions.length && names.every((name, index) => name === defaultUIActions[index])) localStorage.removeItem(actionsStorageKey);
+      else localStorage.setItem(actionsStorageKey, JSON.stringify(names));
+    }
+    catch (_) { status.textContent = 'Storage unavailable — quick actions won’t survive a reload'; }
+    returnToFeedback();
   }
 
   editor.addEventListener('submit', event => {
     event.preventDefault();
+    if (actionDraft) { saveActionSettings(); return; }
     const values = { issueType, uiAction: issueType === 'UI/UX' ? uiAction : '', comment: comment.control.value };
     if (editing) Object.assign(pins.find(pin => pin.id === editing) || {}, values);
     else if (target?.isConnected) pins.push({ id: globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`, url: pageURL, viewport: { width: innerWidth, height: innerHeight }, timestamp: new Date().toISOString(), element: describe(target), ...values });
@@ -143,7 +275,7 @@
     const lines = [`## App feedback — ${pins.length} ${pins.length === 1 ? 'item' : 'items'}`, `- Page: ${pageURL}`];
     pins.forEach((pin, index) => {
       const element = pin.element;
-      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${pin.uiAction}` : pin.issueType;
+      const kind = pin.issueType === 'UI/UX' && pin.uiAction ? `${pin.issueType} / ${inline(pin.uiAction)}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
@@ -184,6 +316,7 @@
     card.focus({ preventScroll: true });
   }
   function openSavedNote(pin) {
+    if (actionDraft) return;
     const element = savedPinTarget(pin.element.selector);
     const rect = element?.getBoundingClientRect();
     const offscreen = rect && (rect.bottom <= 0 || rect.top >= document.documentElement.clientHeight);
@@ -217,7 +350,7 @@
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
     renderSavedMarkers();
   }
-  function closeEditor() { editor.hidden = true; target = null; editing = null; resetHover(); }
+  function closeEditor() { if (actionDraft) closeActionSettings(); editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
     const edge = 12, viewportGap = 8;
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
@@ -303,13 +436,14 @@
     markerFrame = requestAnimationFrame(() => { markerFrame = null; positionSavedMarkers(); });
   }
   function openEditor(element, pin) {
+    if (actionDraft) return;
     resetHover();
     clearCardHighlight();
     const key = pin?.id || element, values = drafts.get(key) || pin;
     drafts.delete(key);
-    target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' && uiActions.includes(values?.uiAction) ? values.uiAction : '';
+    target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' ? values?.uiAction || '' : '';
     comment.control.value = values?.comment || ''; remove.hidden = !pin;
-    title.textContent = pin ? 'Edit feedback' : 'New feedback'; refreshFields(); editor.hidden = false;
+    title.textContent = pin ? 'Edit feedback' : 'New feedback'; renderIntentChips(); refreshFields(); editor.hidden = false;
     placeEditor(element?.getBoundingClientRect()); comment.control.focus();
     showOutline(element);
   }
@@ -354,7 +488,15 @@
     const method = value ? 'addEventListener' : 'removeEventListener'; window[method]('pointermove', hover, true);
     for (const type of ['pointerdown', 'pointerup', 'mousedown', 'mouseup', 'click', 'dblclick', 'contextmenu']) window[method](type, intercept, true);
   }
-  document.addEventListener('keydown', event => { if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); } else if (event.key === 'Escape' && active) { event.preventDefault(); if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); } else setActive(false); } });
+  document.addEventListener('keydown', event => {
+    if (event.altKey && event.shiftKey && event.code === 'KeyP') { event.preventDefault(); setActive(!active); }
+    else if (event.key === 'Escape' && active) {
+      event.preventDefault();
+      if (actionDraft) returnToFeedback();
+      else if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); }
+      else setActive(false);
+    }
+  });
   window.addEventListener('scroll', () => {
     if (editor.hidden) resetHover(); else showOutline(target);
     scheduleMarkerPosition();
