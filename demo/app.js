@@ -28,6 +28,9 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `<td class="mono"></td><td></td><td></td><td></td><td><span class="pill"></span></td><td class="num"></td><td class="num mono"></td>`;
       const cells = tr.children;
+      tr.dataset.testid = `order-${id}`;
+      ['id', 'customer', 'date', 'region', 'status', 'items', 'total'].forEach((field, i) => { cells[i].dataset.testid = `order-${id}-${field}`; });
+      cells[4].firstChild.dataset.testid = `order-${id}-status-pill`;
       cells[0].textContent = id; cells[1].textContent = customer;
       cells[2].textContent = new Date(date).toLocaleDateString('en-GB', { day: 'numeric', month: 'short' });
       cells[3].textContent = region; cells[4].firstChild.textContent = s; cells[4].firstChild.dataset.status = s.toLowerCase();
