@@ -4,10 +4,10 @@
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
   const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise fonts'];
-  const uiActionDetails = { 'Standardise fonts': 'max 3 font sizes' };
-  const renamedUIActions = { 'Standardise (max 3 font sizes)': 'Standardise fonts' };
-  const currentActionName = name => renamedUIActions[name] || name;
-  const actionWithDetail = name => uiActionDetails[name] ? `${name} (${uiActionDetails[name]})` : name;
+  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes']]);
+  const renamedUIActions = new Map([['Standardise (max 3 font sizes)', 'Standardise fonts']]);
+  const currentActionName = name => renamedUIActions.get(name) ?? name;
+  const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
@@ -39,7 +39,7 @@
       [...new Set([valueText(pin.uiIntent), valueText(pin.intent)].filter(Boolean))].forEach(value => addLine('Previous UI intent', value));
       if (oldType && !issueTypes.includes(oldType) && !legacyTypes[oldType]) addLine('Previous issue type', oldType);
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
-      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string' || renamedUIActions[pin.uiAction]) migrateStorage = true;
+      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string' || renamedUIActions.has(pin.uiAction)) migrateStorage = true;
       const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? currentActionName(pin.uiAction) : '', comment: migratedComment };
       legacyFields.forEach(key => { delete migrated[key]; });
       return migrated;
@@ -139,7 +139,7 @@
     intentChips.replaceChildren();
     names.forEach(value => {
       const chip = button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); });
-      if (uiActionDetails[value]) chip.title = actionWithDetail(value);
+      if (uiActionDetails.has(value)) chip.title = actionWithDetail(value);
     });
     emptyActions.hidden = Boolean(names.length);
   }
