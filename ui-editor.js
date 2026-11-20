@@ -360,7 +360,7 @@
       if (!rect) return;
       const sheet = editor.getBoundingClientRect(), onTop = editor.classList.contains('pin-editor-top');
       const freeTop = onTop ? sheet.bottom + edge : edge, freeBottom = onTop ? innerHeight - edge : sheet.top - edge;
-      if (rect.top < freeTop || rect.bottom > freeBottom) scrollBy(0, rect.top - freeTop - Math.max(0, (freeBottom - freeTop - rect.height) / 2));
+      if ((rect.top < freeTop || rect.bottom > freeBottom) && rect.height <= freeBottom - freeTop) scrollBy(0, rect.top - freeTop - Math.max(0, (freeBottom - freeTop - rect.height) / 2));
       return;
     }
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
