@@ -3,7 +3,11 @@
   if (new URLSearchParams(location.search).get('pin') !== '1' || document.getElementById('pin-root')) return;
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
-  const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
+  const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise fonts'];
+  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes']]);
+  const renamedUIActions = new Map([['Standardise (max 3 font sizes)', 'Standardise fonts']]);
+  const currentActionName = name => renamedUIActions.get(name) ?? name;
+  const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
   const pageURL = location.href;
   const storageKey = `pin-overlay:${pageURL}`;
@@ -16,7 +20,8 @@
   try {
     const stored = JSON.parse(localStorage.getItem(actionsStorageKey));
     if (Array.isArray(stored) && stored.every(name => typeof name === 'string' && name.trim())) {
-      const names = stored.map(name => name.trim());
+      const trimmed = stored.map(name => name.trim());
+      const names = trimmed.filter(name => !trimmed.includes(renamedUIActions.get(name))).map(currentActionName);
       if (new Set(names.map(name => name.toLowerCase())).size === names.length) uiActions = names;
     }
   } catch (_) { /* Storage may be unavailable. */ }
@@ -37,8 +42,8 @@
       [...new Set([valueText(pin.uiIntent), valueText(pin.intent)].filter(Boolean))].forEach(value => addLine('Previous UI intent', value));
       if (oldType && !issueTypes.includes(oldType) && !legacyTypes[oldType]) addLine('Previous issue type', oldType);
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
-      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string') migrateStorage = true;
-      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? pin.uiAction : '', comment: migratedComment };
+      if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string' || renamedUIActions.has(pin.uiAction)) migrateStorage = true;
+      const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? currentActionName(pin.uiAction) : '', comment: migratedComment };
       if (!validAnnotation(migrated.annotation)) delete migrated.annotation;
       else if (!validDestination(migrated.annotation.destination)) delete migrated.annotation.destination;
       legacyFields.forEach(key => { delete migrated[key]; });
@@ -164,7 +169,10 @@
     // Keep the label on existing feedback, even if the action is no longer offered.
     const names = uiAction && !uiActions.includes(uiAction) ? [...uiActions, uiAction] : uiActions;
     intentChips.replaceChildren();
-    names.filter(value => value !== 'Annotate').forEach(value => button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); }));
+    names.filter(value => value !== 'Annotate').forEach(value => {
+      const chip = button(value, intentChips, () => { uiAction = uiAction === value ? '' : value; refreshFields(); });
+      if (uiActionDetails.has(value)) chip.title = actionWithDetail(value);
+    });
     const annotate = button('Annotate', intentChips, beginAnnotation); annotate.classList.add('pin-annotate');
     buttonIcon(annotate, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
     emptyActions.hidden = Boolean(names.length);
@@ -524,7 +532,7 @@
     pins.forEach((pin, index) => {
       const element = pin.element;
       const intent = pin.annotation?.mark || pin.uiAction;
-      const kind = pin.issueType === 'UI/UX' && intent ? `${pin.issueType} / ${inline(intent)}` : pin.issueType;
+      const kind = pin.issueType === 'UI/UX' && intent ? `${pin.issueType} / ${inline(actionWithDetail(intent))}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
