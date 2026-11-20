@@ -171,3 +171,11 @@
 @media (prefers-reduced-motion: reduce) {
   #pin-root .pin-button, #pin-root .pin-comment, #pin-root .pin-marker-dot { transition: none; }
 }
+@media (max-width: 600px) {
+  #pin-root .pin-button { min-height: 40px; }
+  #pin-root .pin-comment, #pin-root input:not([type="checkbox"]) { font-size: 16px; }
+  #pin-root .pin-panel { left: 8px; right: 8px; bottom: 76px; width: auto; max-height: 40vh; padding: 16px; }
+  #pin-root .pin-editor { left: 8px; right: 8px; bottom: 8px; top: auto; width: auto; max-height: 50vh; padding: 16px; border-radius: 18px; }
+  #pin-root .pin-editor.pin-editor-top { top: 8px; bottom: auto; }
+  #pin-root:has(.pin-editor:not([hidden])) :is(.pin-panel, .pin-toggle) { display: none; }
+}

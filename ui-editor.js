@@ -6,6 +6,7 @@
   const defaultUIActions = ['Remove', 'Bold', 'Reduce font', 'Increase font', 'Standardise (max 3 font sizes)'];
   const actionsStorageKey = 'pin-overlay:quick-actions';
   const pageURL = location.href;
+  const touch = matchMedia('(pointer: coarse)').matches, narrow = matchMedia('(max-width: 600px)');
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
   const drafts = new Map();
@@ -74,7 +75,7 @@
   const outlineLabel = make('div', 'label', '', outline);
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
   make('h2', 'heading', 'App feedback', panel);
-  make('p', 'hint', 'Point to any UI, data value, or feature. Esc exits.', panel);
+  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Point to any UI, data value, or feature. Esc exits.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
   button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
@@ -353,6 +354,15 @@
   function closeEditor() { if (actionDraft) closeActionSettings(); editor.hidden = true; target = null; editing = null; resetHover(); }
   function placeEditor(rect) {
     const edge = 12, viewportGap = 8;
+    editor.classList.toggle('pin-editor-top', narrow.matches && Boolean(rect) && rect.top + rect.height / 2 > innerHeight / 2);
+    if (narrow.matches) {
+      editor.style.left = editor.style.top = editor.style.width = editor.style.maxHeight = '';
+      if (!rect) return;
+      const sheet = editor.getBoundingClientRect(), onTop = editor.classList.contains('pin-editor-top');
+      const freeTop = onTop ? sheet.bottom + edge : edge, freeBottom = onTop ? innerHeight - edge : sheet.top - edge;
+      if (rect.top < freeTop || rect.bottom > freeBottom) scrollBy(0, rect.top - freeTop - Math.max(0, (freeBottom - freeTop - rect.height) / 2));
+      return;
+    }
     editor.style.width = ''; editor.style.maxHeight = `${innerHeight - (viewportGap * 2)}px`;
     const { width, height } = editor.getBoundingClientRect();
     const viewport = { left: viewportGap, top: viewportGap, right: innerWidth - viewportGap, bottom: innerHeight - viewportGap };
@@ -444,7 +454,7 @@
     target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' ? values?.uiAction || '' : '';
     comment.control.value = values?.comment || ''; remove.hidden = !pin;
     title.textContent = pin ? 'Edit feedback' : 'New feedback'; renderIntentChips(); refreshFields(); editor.hidden = false;
-    placeEditor(element?.getBoundingClientRect()); comment.control.focus();
+    placeEditor(element?.getBoundingClientRect()); if (!touch) comment.control.focus();
     showOutline(element);
   }
   let hoverFrame = null, hoverTarget = null, outlineText = null, outlineStyle = {};
