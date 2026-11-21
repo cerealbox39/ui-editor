@@ -218,8 +218,8 @@
 #pin-root[data-pin-theme="light"] :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])) { background: rgba(118, 118, 128, .16); }
 #pin-root[data-pin-theme="light"] :where(.pin-controls, .pin-chips) > .pin-button:where(:not(.pin-button-primary, .pin-button-danger, [aria-pressed="true"])):hover { background: rgba(118, 118, 128, .2); }
 #pin-root[data-pin-theme="dark"] {
-  --pin-text: #f5f5f7; --pin-secondary: #b0b0b8; --pin-danger: #ff6961;
-  --pin-tool-fill: #363b43; --pin-tool-text: #e5e7eb; --pin-annotation-ink: #2997ff;
+  --pin-text: #fff; --pin-secondary: #fff; --pin-danger: #ff6961;
+  --pin-tool-fill: #363b43; --pin-tool-text: #fff; --pin-annotation-ink: #2997ff;
   --pin-annotation-halo: rgba(17, 19, 23, .8);
   --pin-glass: rgba(30, 30, 32, .55);
   --pin-sheen: linear-gradient(135deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .01));
@@ -233,7 +233,7 @@
   --pin-action-hover: rgba(235, 235, 245, .2);
   --pin-action-input-fill: rgba(235, 235, 245, .045);
   --pin-action-input-edge: rgba(235, 235, 245, .18);
-  --pin-action-muted: #c0c1ca;
+  --pin-action-muted: #fff;
 }
 #pin-root[data-pin-theme="dark"] .pin-card-type { color: #70b5ff; background: rgba(0, 113, 227, .2); }
 #pin-root[data-pin-theme="dark"] .pin-card[data-type="Data"] .pin-card-type { color: #ffbd60; }
