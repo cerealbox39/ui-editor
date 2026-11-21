@@ -191,7 +191,7 @@
       if (selected && detail) item.setAttribute('aria-describedby', actionCaption.id);
       else item.removeAttribute('aria-describedby');
     });
-    actionCaption.textContent = detail || ''; actionCaption.hidden = !detail;
+    actionCaption.textContent = detail ? detail[0].toUpperCase() + detail.slice(1) : ''; actionCaption.hidden = !detail;
     intentGroup.hidden = issueType !== 'UI/UX';
   }
 
@@ -399,9 +399,10 @@
       top: Math.min(...points.map(point => point.y)) - scrollY - 12,
       bottom: Math.max(...points.map(point => point.y)) - scrollY + 12
     };
-    const rect = annotationPrompt.getBoundingClientRect();
-    const overlaps = rect.left < bounds.right && rect.right > bounds.left && rect.top < bounds.bottom && rect.bottom > bounds.top;
-    annotationPrompt.classList.toggle('pin-annotation-bottom', overlaps);
+    const overlaps = rect => rect.left < bounds.right && rect.right > bounds.left && rect.top < bounds.bottom && rect.bottom > bounds.top;
+    if (!overlaps(annotationPrompt.getBoundingClientRect())) return;
+    annotationPrompt.classList.add('pin-annotation-bottom');
+    if (overlaps(annotationPrompt.getBoundingClientRect())) annotationPrompt.classList.remove('pin-annotation-bottom');
   }
   function clearAnnotationMode() {
     if (annotationDrag) cancelAnnotationDrag();
@@ -561,7 +562,7 @@
     if (!destination?.element || !destination.relation) return `Move: ${source} to the marked spot.`;
     const selector = '`' + destination.element.selector.replace(/`/g, '\\`') + '`';
     const placeholder = destination.placeholder ? `; placeholder “${inline(destination.placeholder)}”` : '';
-    const direction = destination.relation.startsWith('on ') ? destination.relation : `to ${destination.relation}`;
+    const direction = `to ${destination.relation.replace(/^on /, '')}`;
     return `Move: ${source} ${inline(direction)} (${selector}${placeholder}).`;
   }
 

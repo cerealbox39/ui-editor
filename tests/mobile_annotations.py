@@ -104,6 +104,17 @@ def extra_checks(page, theme):
     page.keyboard.press('Escape')
     expect(page.locator('.pin-editor')).to_be_visible()
     print(f'PASS mobile {theme}: exact label/heading/card hits, empty-container control fallback, offscreen destination, tiny drag and Escape', flush=True)
+    page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
+    source.click()
+    page.get_by_role('button', name='Annotate', exact=True).click()
+    prompt = page.locator('.pin-annotation-prompt')
+    touch_drag(page, (30, 700, 200, 790))
+    assert 'pin-annotation-bottom' not in prompt.get_attribute('class')
+    assert not overlaps(prompt.bounding_box(), page.locator('[data-draft] ellipse').bounding_box())
+    touch_drag(page, (100, 124, 200, 820))
+    assert 'pin-annotation-bottom' not in prompt.get_attribute('class'), 'Both positions overlap: default to top'
+    page.keyboard.press('Escape')
+    print(f'PASS mobile {theme}: bottom mark keeps prompt on top; both positions overlapping defaults to top', flush=True)
 
 
 def run(browser, url, version, theme, baseline=False):
@@ -155,6 +166,10 @@ def run(browser, url, version, theme, baseline=False):
     pins = page.evaluate("JSON.parse(localStorage.getItem('pin-overlay:' + location.href))")
     destination = pins[0]['annotation']['destination']
     correct_destination = destination['element']['displayedValue'] == '1,284'
+    if not baseline:
+        detail_line = next(line for line in report.splitlines() if line.startswith('- Move:'))
+        assert ' to “1,284” (' in detail_line and ' on “1,284”' not in detail_line, detail_line
+        print(f'PASS mobile {theme}: direct-hit Copy all uses to “1,284”', flush=True)
     print(f'{version} {theme} destination: hit={hit}; saved={destination["relation"]}; selector={destination["element"]["selector"]}', flush=True)
     # Show the real clipboard text in a plain, wrapping report surface for evidence.
     with page.expect_popup() as popup:
@@ -171,7 +186,7 @@ def run(browser, url, version, theme, baseline=False):
     describedby = chip.get_attribute('aria-describedby')
     caption_visible = bool(describedby) and page.locator(f'#{describedby}').is_visible()
     if caption_visible:
-        expect(page.locator(f'#{describedby}')).to_have_text(DESCRIPTION)
+        expect(page.locator(f'#{describedby}')).to_have_text(DESCRIPTION[0].upper() + DESCRIPTION[1:])
     page.wait_for_timeout(350)  # Let Chrome's transient tap highlight fade before capture.
     page.screenshot(path=str(OUT / f'{theme}-{version}-caption.png'))
     print(f'{version} {theme} prompt: height={height}; compact={compact}; separator={separator}; scroll collision-free={collision_free}', flush=True)
@@ -193,7 +208,7 @@ def run(browser, url, version, theme, baseline=False):
         page.keyboard.press('Enter')
         expect(page.locator(f'#{describedby}')).to_be_visible()
         page.get_by_role('button', name='Standardise fonts', exact=True).tap()
-        expect(page.locator(f'#{describedby}')).to_have_text('max 3 font sizes')
+        expect(page.locator(f'#{describedby}')).to_have_text('Max 3 font sizes')
         page.get_by_role('button', name='Remove', exact=True).tap()
         expect(page.locator(f'#{describedby}')).to_be_hidden()
         print(f'PASS mobile {theme}: keyboard toggles caption, other descriptions, no-description action and touch selection prevention', flush=True)
