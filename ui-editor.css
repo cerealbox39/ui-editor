@@ -179,7 +179,7 @@
 }
 @media (max-width: 600px) {
   #pin-root .pin-annotation-prompt {
-    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px;
+    display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 6px;
     width: calc(100vw - 16px); padding: 8px; border-radius: 22px;
     top: calc(var(--pin-view-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
   }
@@ -190,8 +190,10 @@
   #pin-root .pin-annotation-prompt .pin-mark-picker { grid-column: 1 / -1; justify-self: center; }
   #pin-root .pin-annotation-prompt .pin-step-divider,
   #pin-root .pin-annotation-prompt .pin-annotation-step[aria-current="false"] { display: none; }
-  #pin-root .pin-annotation-prompt .pin-annotation-step { grid-column: 1; grid-row: 2; white-space: nowrap; text-align: left; }
-  #pin-root .pin-annotation-controls { grid-column: 2; grid-row: 2; margin-left: 0; }
+  #pin-root .pin-annotation-prompt .pin-annotation-step { grid-column: 2; grid-row: 2; white-space: nowrap; text-align: left; }
+  #pin-root .pin-annotation-prompt .pin-circle-step { grid-column: 1 / 3; }
+  #pin-root .pin-annotation-prompt .pin-circle-step[aria-current="false"] { display: block; grid-column: 1; }
+  #pin-root .pin-annotation-controls { grid-column: 3; grid-row: 2; margin-left: 0; }
 }
 
 @media (prefers-color-scheme: light) {

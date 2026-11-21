@@ -115,6 +115,34 @@ def extra_checks(page, theme):
     assert 'pin-annotation-bottom' not in prompt.get_attribute('class'), 'Both positions overlap: default to top'
     page.keyboard.press('Escape')
     print(f'PASS mobile {theme}: bottom mark keeps prompt on top; both positions overlapping defaults to top', flush=True)
+    page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
+    for mark in ['Move', 'Remove']:
+        source.click()
+        page.get_by_role('button', name='Annotate', exact=True).click()
+        prompt.get_by_role('button', name=mark, exact=True).click()
+        a = source.bounding_box()
+        touch_drag(page, (a['x'] - 3, a['y'] - 5, a['x'] + a['width'] + 3, a['y'] + a['height'] + 5))
+        touch_drag(page, (a['x'] + 10, a['y'] + 10, a['x'] + 100, a['y'] + 70))
+        ellipse = page.locator('[data-draft] ellipse')
+        before = ellipse.get_attribute('cx')
+        expect(page.locator('[data-draft] .pin-annotation-stroke')).to_have_count(1)
+        circle_button = prompt.get_by_role('button', name='✓ Circle', exact=True)
+        row = [circle_button.bounding_box(), prompt.locator('.pin-annotation-step[aria-current="step"]').bounding_box(),
+               prompt.locator('.pin-annotation-controls').bounding_box()]
+        assert max(box['y'] for box in row) - min(box['y'] for box in row) < 4
+        assert all(left['x'] + left['width'] <= right['x'] for left, right in zip(row, row[1:]))
+        assert prompt.evaluate('el => el.scrollWidth <= el.clientWidth')
+        page.wait_for_timeout(500)  # Chrome swallows taps immediately after a CDP touch drag.
+        circle_button.tap()
+        expect(prompt.locator('.pin-circle-step')).to_have_attribute('aria-current', 'step')
+        touch_drag(page, (a['x'] + 5, a['y'] - 3, a['x'] + a['width'] + 15, a['y'] + a['height'] + 8))
+        assert ellipse.get_attribute('cx') != before
+        # Desktop resets the second mark when a new circle is completed.
+        expect(page.locator('[data-draft] .pin-annotation-stroke')).to_have_count(0)
+        expect(prompt.get_by_role('button', name='Save', exact=True)).to_be_disabled()
+        page.keyboard.press('Escape')
+        page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
+    print(f'PASS mobile {theme}: Move/Remove Circle redraw reachable; one unwrapped row; circle changes and second mark resets like desktop', flush=True)
 
 
 def run(browser, url, version, theme, baseline=False):

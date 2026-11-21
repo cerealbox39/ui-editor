@@ -133,7 +133,7 @@
     buttonIcon(control, markIcons[index]); return control;
   });
   const circleStep = button('', annotationPrompt, () => { annotationStep = 0; updateAnnotationPrompt(); });
-  circleStep.classList.add('pin-annotation-step'); circleStep.title = 'Drag to draw or redraw the circle';
+  circleStep.classList.add('pin-annotation-step', 'pin-circle-step'); circleStep.title = 'Drag to draw or redraw the circle';
   const stepDivider = make('span', 'step-divider', '·', annotationPrompt);
   const detailStep = button('', annotationPrompt, () => { if (annotationDraft?.circle) { annotationStep = 1; updateAnnotationPrompt(); } });
   detailStep.classList.add('pin-annotation-step'); detailStep.title = 'Drag to draw or redraw the second mark';
@@ -377,7 +377,7 @@
     if (!annotationDraft) return;
     const { mark, circle, stroke } = annotationDraft, single = mark === 'Highlight';
     markButtons.forEach((control, index) => { control.setAttribute('aria-pressed', String(annotationMarks[index] === mark)); control.disabled = Boolean(annotationDrag); });
-    circleStep.textContent = `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
+    circleStep.textContent = narrow.matches && annotationStep === 1 ? '✓ Circle' : `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
     const direction = mark === 'Remove' ? 'Draw an X over it' : narrow.matches ? 'Draw an arrow' : 'Draw an arrow to where it should go';
     detailStep.textContent = `${stroke ? '✓ ' : ''}2 ${direction}`;
     circleStep.setAttribute('aria-current', annotationStep === 0 ? 'step' : 'false');
