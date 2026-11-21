@@ -33,6 +33,8 @@ If the URL already has query parameters, append `&pin=1`.
 
 Click the floating feedback button or press `Alt+Shift+P`, select an element, complete the feedback form, and save. The generated Markdown report can be copied from the overlay.
 
+The feedback panel's **Dark mode / Light mode** switch changes only the overlay. It follows your system theme until you choose a mode, then remembers your choice in this browser.
+
 In inspect mode, a small dot on each element with saved feedback shows its number in the feedback list. The dots renumber when you delete a note and disappear when you leave inspect mode or use **Clear all**.
 Select a note in the feedback list to bring its element into view and highlight it while editing, or select a numbered dot to highlight its note in the list.
 

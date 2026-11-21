@@ -9,6 +9,13 @@
   const currentActionName = name => renamedUIActions.get(name) ?? name;
   const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
+  const themeStorageKey = 'pin-overlay:theme';
+  const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+  let themeChoice = null;
+  try {
+    const stored = localStorage.getItem(themeStorageKey);
+    if (stored === 'light' || stored === 'dark') themeChoice = stored;
+  } catch (_) { /* Storage may be unavailable. */ }
   const pageURL = location.href;
   const touch = matchMedia('(pointer: coarse)').matches, narrow = matchMedia('(max-width: 600px)');
   const storageKey = `pin-overlay:${pageURL}`;
@@ -87,8 +94,27 @@
   const outline = make('div', 'outline'); outline.hidden = true;
   const outlineLabel = make('div', 'label', '', outline);
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
-  make('h2', 'heading', 'App feedback', panel);
-  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Point to any UI, data value, or feature. Esc exits.', panel);
+  const panelHeader = make('div', 'panel-header', undefined, panel);
+  make('h2', 'heading', 'App feedback', panelHeader);
+  const themeToggle = button('', panelHeader, () => {
+    themeChoice = root.dataset.pinTheme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(themeStorageKey, themeChoice); } catch (_) { /* Storage may be unavailable. */ }
+    refreshTheme();
+  });
+  themeToggle.classList.add('pin-theme-toggle');
+  function refreshTheme() {
+    const dark = (themeChoice || (systemTheme.matches ? 'dark' : 'light')) === 'dark';
+    root.dataset.pinTheme = dark ? 'dark' : 'light';
+    themeToggle.textContent = dark ? 'Light mode' : 'Dark mode';
+    themeToggle.setAttribute('aria-pressed', String(dark));
+    themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    buttonIcon(themeToggle, dark
+      ? 'M10.8 8a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0ZM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1m7.8 7.8L13 13M3 13l1.1-1.1m7.8-7.8L13 3'
+      : 'M13.6 9.1A5.8 5.8 0 0 1 6.9 2.4a5.8 5.8 0 1 0 6.7 6.7Z');
+  }
+  refreshTheme();
+  systemTheme.addEventListener('change', () => { if (!themeChoice) refreshTheme(); });
+  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Use Shift to select multiple items and Esc to exit.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
   button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
