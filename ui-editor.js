@@ -4,7 +4,7 @@
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
   const defaultUIActions = ['Remove', 'Standardise fonts', 'Add padding', 'Add collapse'];
-  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes']]);
+  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes'], ['Add collapse', 'add a button that collapses and expands this section']]);
   const renamedUIActions = new Map([['Standardise (max 3 font sizes)', 'Standardise fonts']]);
   const currentActionName = name => renamedUIActions.get(name) ?? name;
   const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
