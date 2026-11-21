@@ -1,6 +1,6 @@
 # UI Editor
 
-Dependency-free UI and application feedback overlay for local development and protected preview environments.
+The hardest part about vibe coding is describing UI changes to your coding agent, especially when coding in CLI. This build serves as an UI and application feedback overlay for local development and protected preview environments. Suitable for use with any IDE/ADE.
 
 ## Install
 
