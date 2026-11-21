@@ -176,6 +176,7 @@
     });
     const annotate = button('Annotate', intentChips, beginAnnotation); annotate.classList.add('pin-annotate');
     buttonIcon(annotate, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
+    intentChips.insertBefore(annotate, intentChips.children[2] || null);
     emptyActions.hidden = Boolean(names.length);
   }
   function refreshFields() {
