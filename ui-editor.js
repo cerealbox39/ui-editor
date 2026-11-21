@@ -122,9 +122,20 @@
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
   const list = make('ol', 'list', undefined, panel);
   const status = make('p', 'status', 'Ready', panel); status.setAttribute('role', 'status');
+  const storageWarnings = new Map();
   function setStatus(text, { alert = false } = {}) {
+    if (storageWarnings.size) {
+      text = [...storageWarnings.values()].join(' ');
+      alert = true;
+    }
     status.textContent = text;
     status.classList.toggle('pin-status-alert', alert);
+  }
+  function setStorageWarning(key, text) {
+    const previous = storageWarnings.has(key);
+    if (text) storageWarnings.set(key, text);
+    else storageWarnings.delete(key);
+    if (text || previous) setStatus('Ready');
   }
   auto.addEventListener('change', () => { autoCopy = auto.checked; setStatus(autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'); });
 
@@ -301,8 +312,9 @@
     try {
       if (names.length === defaultUIActions.length && names.every((name, index) => name === defaultUIActions[index])) localStorage.removeItem(actionsStorageKey);
       else localStorage.setItem(actionsStorageKey, JSON.stringify(names));
+      setStorageWarning(actionsStorageKey, null);
     }
-    catch (_) { setStatus('Storage unavailable — quick actions won’t survive a reload', { alert: true }); }
+    catch (_) { setStorageWarning(actionsStorageKey, 'Storage unavailable — quick actions won’t survive a reload'); }
     returnToFeedback();
   }
 
@@ -626,7 +638,10 @@
     copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) setStatus(`Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`); }).catch(error => { if (sequence === copySequence) setStatus('Clipboard update failed — use Copy all', { alert: true }); console.warn('App feedback overlay: clipboard update failed', error); });
   }
   function changed() {
-    try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { setStatus('Storage unavailable — feedback remains in memory', { alert: true }); }
+    try {
+      if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey);
+      setStorageWarning(storageKey, null);
+    } catch (_) { setStorageWarning(storageKey, 'Storage unavailable — feedback remains in memory'); }
     render(); if (autoCopy) copyAll();
   }
   const listItems = new Map();
