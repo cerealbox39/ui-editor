@@ -69,7 +69,12 @@ def overlaps(a, b):
     return a['x'] < b['x'] + b['width'] and a['x'] + a['width'] > b['x'] and a['y'] < b['y'] + b['height'] and a['y'] + a['height'] > b['y']
 
 
-def extra_checks(page, theme):
+def manual_annotation(page):
+    page.get_by_role('button', name='Annotate', exact=True).click()
+    page.locator('.pin-circle-step').click()
+
+
+def extra_checks(page, theme, default_rings):
     page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
     page.get_by_role('button', name='Clear all', exact=True).click()
     cases = [('label', '.kpi-label', 1, 'span'), ('heading', 'h1', 0, 'h1'),
@@ -79,7 +84,7 @@ def extra_checks(page, theme):
         page.evaluate('window.scrollTo(0, 0)')
         source = page.locator('.kpi-value').first
         source.click()
-        page.get_by_role('button', name='Annotate', exact=True).click()
+        manual_annotation(page)
         a = source.bounding_box()
         touch_drag(page, (a['x'] - 3, a['y'] - 5, a['x'] + a['width'] + 3, a['y'] + a['height'] + 5))
         b = page.locator(selector).nth(index).bounding_box()
@@ -97,7 +102,7 @@ def extra_checks(page, theme):
         assert (destination['element']['tag'] if destination else None) == expected_tag, (name, destination)
         page.get_by_role('button', name='Clear all', exact=True).click()
     source.click()
-    page.get_by_role('button', name='Annotate', exact=True).click()
+    manual_annotation(page)
     a = source.bounding_box()
     touch_drag(page, (a['x'], a['y'], a['x'] + 1, a['y'] + 1))
     expect(page.locator('.pin-annotation-prompt').get_by_role('button', name='Save', exact=True)).to_be_disabled()
@@ -106,7 +111,7 @@ def extra_checks(page, theme):
     print(f'PASS mobile {theme}: exact label/heading/card hits, empty-container control fallback, offscreen destination, tiny drag and Escape', flush=True)
     page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
     source.click()
-    page.get_by_role('button', name='Annotate', exact=True).click()
+    manual_annotation(page)
     prompt = page.locator('.pin-annotation-prompt')
     touch_drag(page, (30, 700, 200, 790))
     assert 'pin-annotation-bottom' not in prompt.get_attribute('class')
@@ -120,26 +125,31 @@ def extra_checks(page, theme):
         source.click()
         page.get_by_role('button', name='Annotate', exact=True).click()
         prompt.get_by_role('button', name=mark, exact=True).click()
+        prompt.locator('.pin-circle-step').click()
         a = source.bounding_box()
         touch_drag(page, (a['x'] - 3, a['y'] - 5, a['x'] + a['width'] + 3, a['y'] + a['height'] + 5))
         touch_drag(page, (a['x'] + 10, a['y'] + 10, a['x'] + 100, a['y'] + 70))
         ellipse = page.locator('[data-draft] ellipse')
         before = ellipse.get_attribute('cx')
         expect(page.locator('[data-draft] .pin-annotation-stroke')).to_have_count(1)
-        circle_button = prompt.get_by_role('button', name='✓ Circle', exact=True)
+        circle_button = prompt.locator('.pin-circle-step')
+        expect(circle_button).to_have_text('✓ Circle')
         row = [circle_button.bounding_box(), prompt.locator('.pin-annotation-step[aria-current="step"]').bounding_box(),
                prompt.locator('.pin-annotation-controls').bounding_box()]
         assert max(box['y'] for box in row) - min(box['y'] for box in row) < 4
         assert all(left['x'] + left['width'] <= right['x'] for left, right in zip(row, row[1:]))
         assert prompt.evaluate('el => el.scrollWidth <= el.clientWidth')
-        page.wait_for_timeout(500)  # Chrome swallows taps immediately after a CDP touch drag.
+        page.wait_for_timeout(800)  # Chrome swallows taps immediately after a CDP touch drag.
         circle_button.tap()
         expect(prompt.locator('.pin-circle-step')).to_have_attribute('aria-current', 'step')
         touch_drag(page, (a['x'] + 5, a['y'] - 3, a['x'] + a['width'] + 15, a['y'] + a['height'] + 8))
         assert ellipse.get_attribute('cx') != before
         # Desktop resets the second mark when a new circle is completed.
         expect(page.locator('[data-draft] .pin-annotation-stroke')).to_have_count(0)
-        expect(prompt.get_by_role('button', name='Save', exact=True)).to_be_disabled()
+        if default_rings and mark == 'Remove':
+            expect(prompt.get_by_role('button', name='Save', exact=True)).to_be_enabled()
+        else:
+            expect(prompt.get_by_role('button', name='Save', exact=True)).to_be_disabled()
         page.keyboard.press('Escape')
         page.locator('.pin-editor').get_by_role('button', name='Cancel', exact=True).click()
     print(f'PASS mobile {theme}: Move/Remove Circle redraw reachable; one unwrapped row; circle changes and second mark resets like desktop', flush=True)
@@ -164,7 +174,7 @@ def run(browser, url, version, theme, baseline=False):
     source = page.locator('.kpi-value').nth(0)
     target = page.locator('.kpi-value').nth(1)
     source.tap()
-    page.get_by_role('button', name='Annotate', exact=True).tap()
+    manual_annotation(page)
     box = source.bounding_box()
     initial_scroll = page.evaluate('scrollY')
     touch_drag(page, (box['x'] - 3, box['y'] - 5, box['x'] + box['width'] + 3, box['y'] + box['height'] + 5))
@@ -240,7 +250,7 @@ def run(browser, url, version, theme, baseline=False):
         page.get_by_role('button', name='Remove', exact=True).tap()
         expect(page.locator(f'#{describedby}')).to_be_hidden()
         print(f'PASS mobile {theme}: keyboard toggles caption, other descriptions, no-description action and touch selection prevention', flush=True)
-        extra_checks(page, theme)
+        extra_checks(page, theme, version == 'branch')
     assert not errors, errors
     context.close()
 
@@ -261,7 +271,7 @@ if __name__ == '__main__':
     with sync_playwright() as pw, serve(main=True) as main_url, serve() as branch_url:
         browser = pw.chromium.launch(executable_path=CHROME, args=['--no-sandbox'])
         for theme in ['light', 'dark']:
-            run(browser, main_url, 'main', theme, baseline=True)
+            run(browser, main_url, 'main', theme, baseline='--baseline' in sys.argv)
             if '--baseline' not in sys.argv:
                 run(browser, branch_url, 'branch', theme)
                 for kind in ['prompt', 'caption', 'report']:
