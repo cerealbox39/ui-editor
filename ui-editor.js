@@ -122,7 +122,11 @@
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
   const list = make('ol', 'list', undefined, panel);
   const status = make('p', 'status', 'Ready', panel); status.setAttribute('role', 'status');
-  auto.addEventListener('change', () => { autoCopy = auto.checked; status.textContent = autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'; });
+  function setStatus(text, { alert = false } = {}) {
+    status.textContent = text;
+    status.classList.toggle('pin-status-alert', alert);
+  }
+  auto.addEventListener('change', () => { autoCopy = auto.checked; setStatus(autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'); });
 
   const editor = make('form', 'editor'); editor.hidden = true; editor.setAttribute('aria-label', 'Edit feedback');
   const title = make('h2', 'heading', 'New feedback', editor);
@@ -298,7 +302,7 @@
       if (names.length === defaultUIActions.length && names.every((name, index) => name === defaultUIActions[index])) localStorage.removeItem(actionsStorageKey);
       else localStorage.setItem(actionsStorageKey, JSON.stringify(names));
     }
-    catch (_) { status.textContent = 'Storage unavailable — quick actions won’t survive a reload'; }
+    catch (_) { setStatus('Storage unavailable — quick actions won’t survive a reload', { alert: true }); }
     returnToFeedback();
   }
 
@@ -619,10 +623,10 @@
     const output = markdown(), total = pins.length, sequence = ++copySequence;
     const write = () => navigator.clipboard?.writeText ? navigator.clipboard.writeText(output) : Promise.reject(new Error('Clipboard API unavailable'));
     const promise = write();
-    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) status.textContent = `Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`; }).catch(error => { if (sequence === copySequence) status.textContent = 'Clipboard update failed — use Copy all'; console.warn('App feedback overlay: clipboard update failed', error); });
+    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) setStatus(`Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`); }).catch(error => { if (sequence === copySequence) setStatus('Clipboard update failed — use Copy all', { alert: true }); console.warn('App feedback overlay: clipboard update failed', error); });
   }
   function changed() {
-    try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
+    try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { setStatus('Storage unavailable — feedback remains in memory', { alert: true }); }
     render(); if (autoCopy) copyAll();
   }
   const listItems = new Map();
