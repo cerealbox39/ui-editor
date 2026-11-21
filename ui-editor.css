@@ -7,7 +7,7 @@
   --pin-accent: #0071e3;
   --pin-accent-hover: #0062c4;
   --pin-danger: #d70015;
-  --pin-glass: rgba(255, 255, 255, .55);
+  --pin-glass: rgba(255, 255, 255, .82);
   --pin-sheen: linear-gradient(135deg, rgba(255, 255, 255, .5), rgba(255, 255, 255, .08));
   --pin-border: rgba(255, 255, 255, .65);
   --pin-fill: rgba(255, 255, 255, .38);
