@@ -175,7 +175,7 @@
       if (uiActionDetails.has(value)) chip.title = actionWithDetail(value);
     });
     const annotate = button('Annotate', intentChips, beginAnnotation); annotate.classList.add('pin-annotate');
-    buttonIcon(annotate, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
+    buttonIcon(annotate, 'M6 10.7C3.7 10.1 2 8.5 2 6.5 2 4 4.7 2 8 2s6 2 6 4.5S11.3 11 8 11H6c-1.1 0-2 .7-2 1.5S5 14 6.5 14');
     intentChips.insertBefore(annotate, intentChips.children[2] || null);
     emptyActions.hidden = Boolean(names.length);
   }
