@@ -3,9 +3,9 @@
   if (new URLSearchParams(location.search).get('pin') !== '1' || document.getElementById('pin-root')) return;
 
   const issueTypes = ['UI/UX', 'Data', 'New Feature'];
-  const defaultUIActions = ['Remove', 'Standardise fonts', 'Add padding', 'Add collapse'];
-  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes']]);
-  const renamedUIActions = new Map([['Standardise (max 3 font sizes)', 'Standardise fonts']]);
+  const defaultUIActions = ['Remove', 'Standardise fonts', 'Add padding', 'Add collapse button'];
+  const uiActionDetails = new Map([['Standardise fonts', 'max 3 font sizes'], ['Add collapse button', 'add a button that collapses and expands this section']]);
+  const renamedUIActions = new Map([['Standardise (max 3 font sizes)', 'Standardise fonts'], ['Add collapse', 'Add collapse button']]);
   const currentActionName = name => renamedUIActions.get(name) ?? name;
   const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
