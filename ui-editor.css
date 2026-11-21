@@ -67,7 +67,8 @@
 #pin-root .pin-heading { font: 600 20px/1.4 Inter, -apple-system, BlinkMacSystemFont, "SF Pro Text", system-ui, sans-serif; letter-spacing: -.6px; margin: 0 0 10px; color: var(--pin-text); }
 #pin-root .pin-hint, #pin-root .pin-status { font-size: 12px; color: var(--pin-secondary); margin: 8px 0; }
 #pin-root .pin-controls, #pin-root .pin-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 10px 0; }
-#pin-root .pin-chips .pin-button { padding: 6px 12px; font-size: 12px; font-weight: 500; }
+#pin-root .pin-chips .pin-button { padding: 6px 12px; font-size: 12px; font-weight: 500; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none; }
+#pin-root .pin-action-caption { margin: 6px 0 0; color: var(--pin-secondary); font-size: 12px; line-height: 1.5; }
 #pin-root .pin-editor > .pin-controls, #pin-root .pin-action-settings > .pin-controls {
   position: sticky; bottom: -20px; z-index: 1; margin: 16px -20px -20px; padding: 14px 20px 20px;
   border-top: 1px solid var(--pin-line); background: var(--pin-sheen), var(--pin-glass);
@@ -175,6 +176,22 @@
 @media (max-width: 960px) {
   #pin-root .pin-annotation-prompt { flex-wrap: wrap; justify-content: center; border-radius: 22px; }
   #pin-root .pin-annotation-prompt .pin-annotation-step { white-space: normal; }
+}
+@media (max-width: 600px) {
+  #pin-root .pin-annotation-prompt {
+    display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px;
+    width: calc(100vw - 16px); padding: 8px; border-radius: 22px;
+    top: calc(var(--pin-view-top, 0px) + env(safe-area-inset-top, 0px) + 8px);
+  }
+  #pin-root .pin-annotation-prompt.pin-annotation-bottom {
+    top: auto; bottom: calc(var(--pin-view-bottom, 0px) + env(safe-area-inset-bottom, 0px) + 8px); z-index: 2147483647;
+  }
+  #pin-root.pin-annotating:has(.pin-annotation-bottom) .pin-toggle { display: none; }
+  #pin-root .pin-annotation-prompt .pin-mark-picker { grid-column: 1 / -1; justify-self: center; }
+  #pin-root .pin-annotation-prompt .pin-step-divider,
+  #pin-root .pin-annotation-prompt .pin-annotation-step[aria-current="false"] { display: none; }
+  #pin-root .pin-annotation-prompt .pin-annotation-step { grid-column: 1; grid-row: 2; white-space: nowrap; text-align: left; }
+  #pin-root .pin-annotation-controls { grid-column: 2; grid-row: 2; margin-left: 0; }
 }
 
 @media (prefers-color-scheme: light) {

@@ -113,6 +113,9 @@
   buttonIcon(editActions, 'm10.2 3.5 2.3 2.3M3 13l3.1-.6 7.1-7.1a1.6 1.6 0 0 0-2.3-2.3l-7.1 7.1L3 13z');
   const intentChips = make('div', 'chips', undefined, intentGroup);
   const emptyActions = make('p', 'hint', 'Add more actions with the pencil.', intentGroup);
+  const actionCaption = make('p', 'action-caption', '', intentGroup);
+  actionCaption.id = 'pin-action-description'; actionCaption.hidden = true;
+  actionCaption.setAttribute('role', 'status');
   const comment = area('Comments', 'Describe the issue or requested change.');
   const actions = make('div', 'controls', undefined, editor);
   const save = button('Save', actions, () => {}); save.type = 'submit'; save.classList.add('pin-button-primary');
@@ -181,7 +184,14 @@
   }
   function refreshFields() {
     typeButtons.forEach((item, index) => item.setAttribute('aria-pressed', String(issueTypes[index] === issueType)));
-    Array.from(intentChips.children).forEach(item => item.setAttribute('aria-pressed', String(item.textContent === uiAction)));
+    const detail = uiActionDetails.get(uiAction);
+    Array.from(intentChips.children).forEach(item => {
+      const selected = item.textContent === uiAction;
+      item.setAttribute('aria-pressed', String(selected));
+      if (selected && detail) item.setAttribute('aria-describedby', actionCaption.id);
+      else item.removeAttribute('aria-describedby');
+    });
+    actionCaption.textContent = detail || ''; actionCaption.hidden = !detail;
     intentGroup.hidden = issueType !== 'UI/UX';
   }
 
@@ -368,12 +378,30 @@
     const { mark, circle, stroke } = annotationDraft, single = mark === 'Highlight';
     markButtons.forEach((control, index) => { control.setAttribute('aria-pressed', String(annotationMarks[index] === mark)); control.disabled = Boolean(annotationDrag); });
     circleStep.textContent = `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
-    detailStep.textContent = `${stroke ? '✓ ' : ''}2 ${mark === 'Remove' ? 'Draw an X over it' : 'Draw an arrow to where it should go'}`;
+    const direction = mark === 'Remove' ? 'Draw an X over it' : narrow.matches ? 'Draw an arrow' : 'Draw an arrow to where it should go';
+    detailStep.textContent = `${stroke ? '✓ ' : ''}2 ${direction}`;
     circleStep.setAttribute('aria-current', annotationStep === 0 ? 'step' : 'false');
     detailStep.setAttribute('aria-current', annotationStep === 1 ? 'step' : 'false');
     circleStep.disabled = Boolean(annotationDrag); detailStep.disabled = !circle || Boolean(annotationDrag);
     detailStep.hidden = single; stepDivider.hidden = single;
     annotationSave.disabled = Boolean(annotationDrag) || !validAnnotation(annotationDraft);
+    positionAnnotationPrompt();
+  }
+  function positionAnnotationPrompt() {
+    annotationPrompt.classList.remove('pin-annotation-bottom');
+    if (!annotationDraft || !narrow.matches || !annotationDraft.circle) return;
+    const { circle, stroke } = annotationDraft;
+    const points = [{ x: circle.x, y: circle.y }, { x: circle.x + circle.width, y: circle.y + circle.height }];
+    if (stroke) points.push(stroke.start, stroke.end);
+    const bounds = {
+      left: Math.min(...points.map(point => point.x)) - scrollX - 12,
+      right: Math.max(...points.map(point => point.x)) - scrollX + 12,
+      top: Math.min(...points.map(point => point.y)) - scrollY - 12,
+      bottom: Math.max(...points.map(point => point.y)) - scrollY + 12
+    };
+    const rect = annotationPrompt.getBoundingClientRect();
+    const overlaps = rect.left < bounds.right && rect.right > bounds.left && rect.top < bounds.bottom && rect.bottom > bounds.top;
+    annotationPrompt.classList.toggle('pin-annotation-bottom', overlaps);
   }
   function clearAnnotationMode() {
     if (annotationDrag) cancelAnnotationDrag();
@@ -449,7 +477,9 @@
     if (x < 0 || y < 0 || x >= innerWidth || y >= innerHeight) return null;
     const hits = document.elementsFromPoint(x, y).filter(element => !root.contains(element));
     const controls = 'input:not([type="hidden"]), textarea, select, button, a[href], [role="button"], [role="searchbox"]';
-    let element = hits[0]?.closest(controls);
+    const hit = hits[0];
+    let element = hit?.closest(controls);
+    if (!element && meaningfulDestination(hit, controls)) element = hit;
     if (!element) {
       const nearest = pageMatches(controls).map(control => {
         const rect = control.getBoundingClientRect();
@@ -462,6 +492,13 @@
     const rect = element.getBoundingClientRect(), label = destinationName(element);
     const relation = x < rect.left ? 'just left of' : x > rect.right ? 'just right of' : y < rect.top ? 'just above' : y > rect.bottom ? 'just below' : 'on';
     return { element: describe(element), label, relation: `${relation} ${label}`, placeholder: short(element.getAttribute('placeholder')) };
+  }
+  function meaningfulDestination(element, controls) {
+    if (!element || element.matches('html, body')) return false;
+    if (element.getAttribute('aria-label') || element.getAttribute('alt')) return true;
+    if (!element.textContent.trim()) return false;
+    return Array.from(element.childNodes).some(node => node.nodeType === Node.TEXT_NODE && node.textContent.trim()) ||
+      element.matches('article, section, figure, [role="group"], [role="region"]') || !element.querySelector(controls);
   }
   function linePath(start, end) {
     return `M${start.x} ${start.y}L${end.x} ${end.y}`;
@@ -505,6 +542,7 @@
   function positionAnnotations() {
     annotationLayer.setAttribute('viewBox', `0 0 ${innerWidth} ${innerHeight}`);
     annotationCanvas.setAttribute('transform', `translate(${-scrollX} ${-scrollY})`);
+    positionAnnotationPrompt();
   }
   function renderAnnotations() {
     annotationCanvas.replaceChildren(); annotationLayer.style.display = active ? '' : 'none';
@@ -523,7 +561,8 @@
     if (!destination?.element || !destination.relation) return `Move: ${source} to the marked spot.`;
     const selector = '`' + destination.element.selector.replace(/`/g, '\\`') + '`';
     const placeholder = destination.placeholder ? `; placeholder “${inline(destination.placeholder)}”` : '';
-    return `Move: ${source} to ${inline(destination.relation)} (${selector}${placeholder}).`;
+    const direction = destination.relation.startsWith('on ') ? destination.relation : `to ${destination.relation}`;
+    return `Move: ${source} ${inline(direction)} (${selector}${placeholder}).`;
   }
 
   const elementLabel = element => `${element.tag}${element.classes[0] ? '.' + element.classes[0] : element.displayedValue ? ' ' + element.displayedValue : ''}`.trim();
@@ -782,11 +821,13 @@
     root.style.setProperty('--pin-view-top', `${view.offsetTop}px`);
     root.style.setProperty('--pin-view-bottom', `${Math.max(0, innerHeight - view.height - view.offsetTop)}px`);
     root.style.setProperty('--pin-view-height', `${view.height}px`);
+    positionAnnotationPrompt();
   }
   globalThis.visualViewport?.addEventListener('resize', fitVisualViewport);
   globalThis.visualViewport?.addEventListener('scroll', fitVisualViewport);
   fitVisualViewport();
   window.addEventListener('resize', () => {
+    if (annotationDraft) updateAnnotationPrompt();
     resetHover(); scheduleMarkerPosition(); positionAnnotations();
     if (!editor.hidden) { placeEditor(target?.getBoundingClientRect()); showOutline(target); }
   });
