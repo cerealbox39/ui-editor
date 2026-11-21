@@ -9,6 +9,13 @@
   const currentActionName = name => renamedUIActions.get(name) ?? name;
   const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
+  const themeStorageKey = 'pin-overlay:theme';
+  const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+  let themeChoice = null;
+  try {
+    const stored = localStorage.getItem(themeStorageKey);
+    if (stored === 'light' || stored === 'dark') themeChoice = stored;
+  } catch (_) { /* Storage may be unavailable. */ }
   const pageURL = location.href;
   const touch = matchMedia('(pointer: coarse)').matches, narrow = matchMedia('(max-width: 600px)');
   const storageKey = `pin-overlay:${pageURL}`;
@@ -87,8 +94,26 @@
   const outline = make('div', 'outline'); outline.hidden = true;
   const outlineLabel = make('div', 'label', '', outline);
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
-  make('h2', 'heading', 'App feedback', panel);
-  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Point to any UI, data value, or feature. Esc exits.', panel);
+  const panelHeader = make('div', 'panel-header', undefined, panel);
+  make('h2', 'heading', 'App feedback', panelHeader);
+  const themeToggle = button('', panelHeader, () => {
+    themeChoice = root.dataset.pinTheme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(themeStorageKey, themeChoice); } catch (_) { /* Storage may be unavailable. */ }
+    refreshTheme();
+  });
+  themeToggle.classList.add('pin-theme-toggle');
+  function refreshTheme() {
+    const dark = (themeChoice || (systemTheme.matches ? 'dark' : 'light')) === 'dark';
+    root.dataset.pinTheme = dark ? 'dark' : 'light';
+    themeToggle.textContent = dark ? 'Light mode' : 'Dark mode';
+    themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    buttonIcon(themeToggle, dark
+      ? 'M10.8 8a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0ZM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1m7.8 7.8L13 13M3 13l1.1-1.1m7.8-7.8L13 3'
+      : 'M13.6 9.1A5.8 5.8 0 0 1 6.9 2.4a5.8 5.8 0 1 0 6.7 6.7Z');
+  }
+  refreshTheme();
+  systemTheme.addEventListener('change', () => { if (!themeChoice) refreshTheme(); });
+  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Use Shift to select multiple items and Esc to exit.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
   button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
@@ -97,7 +122,22 @@
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
   const list = make('ol', 'list', undefined, panel);
   const status = make('p', 'status', 'Ready', panel); status.setAttribute('role', 'status');
-  auto.addEventListener('change', () => { autoCopy = auto.checked; status.textContent = autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'; });
+  const storageWarnings = new Map();
+  function setStatus(text, { alert = false } = {}) {
+    if (storageWarnings.size) {
+      text = [...storageWarnings.values()].join(' ');
+      alert = true;
+    }
+    status.textContent = text;
+    status.classList.toggle('pin-status-alert', alert);
+  }
+  function setStorageWarning(key, text) {
+    const previous = storageWarnings.has(key);
+    if (text) storageWarnings.set(key, text);
+    else storageWarnings.delete(key);
+    if (text || previous) setStatus('Ready');
+  }
+  auto.addEventListener('change', () => { autoCopy = auto.checked; setStatus(autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'); });
 
   const editor = make('form', 'editor'); editor.hidden = true; editor.setAttribute('aria-label', 'Edit feedback');
   const title = make('h2', 'heading', 'New feedback', editor);
@@ -272,8 +312,9 @@
     try {
       if (names.length === defaultUIActions.length && names.every((name, index) => name === defaultUIActions[index])) localStorage.removeItem(actionsStorageKey);
       else localStorage.setItem(actionsStorageKey, JSON.stringify(names));
+      setStorageWarning(actionsStorageKey, null);
     }
-    catch (_) { status.textContent = 'Storage unavailable — quick actions won’t survive a reload'; }
+    catch (_) { setStorageWarning(actionsStorageKey, 'Storage unavailable — quick actions won’t survive a reload'); }
     returnToFeedback();
   }
 
@@ -594,10 +635,13 @@
     const output = markdown(), total = pins.length, sequence = ++copySequence;
     const write = () => navigator.clipboard?.writeText ? navigator.clipboard.writeText(output) : Promise.reject(new Error('Clipboard API unavailable'));
     const promise = write();
-    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) status.textContent = `Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`; }).catch(error => { if (sequence === copySequence) status.textContent = 'Clipboard update failed — use Copy all'; console.warn('App feedback overlay: clipboard update failed', error); });
+    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) setStatus(`Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`); }).catch(error => { if (sequence === copySequence) setStatus('Clipboard update failed — use Copy all', { alert: true }); console.warn('App feedback overlay: clipboard update failed', error); });
   }
   function changed() {
-    try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
+    try {
+      if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey);
+      setStorageWarning(storageKey, null);
+    } catch (_) { setStorageWarning(storageKey, 'Storage unavailable — feedback remains in memory'); }
     render(); if (autoCopy) copyAll();
   }
   const listItems = new Map();
