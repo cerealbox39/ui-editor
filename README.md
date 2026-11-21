@@ -33,8 +33,12 @@ If the URL already has query parameters, append `&pin=1`.
 
 Click the floating feedback button or press `Alt+Shift+P`, select an element, complete the feedback form, and save. The generated Markdown report can be copied from the overlay.
 
+The feedback panel's **Dark mode / Light mode** switch changes only the overlay. It follows your system theme until you choose a mode, then remembers your choice in this browser.
+
 In inspect mode, a small dot on each element with saved feedback shows its number in the feedback list. The dots renumber when you delete a note and disappear when you leave inspect mode or use **Clear all**.
 Select a note in the feedback list to bring its element into view and highlight it while editing, or select a numbered dot to highlight its note in the list.
+
+**Hold Shift and click to select multiple elements** in desktop inspect mode, including while New feedback is open. Shift-click a selected element to remove it; a plain click starts a single selection as before. Numbered outlines show the selection order. Save creates one note for all selected elements, and Copy all lists every element and its selector. Multi-element notes survive reload. Phone selection remains single-element.
 
 This version supports:
 
@@ -48,13 +52,13 @@ This version supports:
 
 ### Annotate a change
 
-Select an element in inspect mode, then choose **Annotate** (pencil) in the **UI Quick Actions** row. The editor and feedback list move out of the way; your issue type, chosen action, and comment stay in the draft.
+Select one or more elements in inspect mode, then choose **Annotate** (squiggle) in the **UI Quick Actions** row. Each selected element gets a padded ring automatically. The editor and feedback list move out of the way; your issue type, chosen action, and comment stay in the draft.
 
-- **Move**: drag a circle around the element, then drag a straight arrow to where it should go.
-- **Remove**: drag a circle, then drag diagonally across it to draw an X.
-- **Highlight**: drag a circle only.
+- **Move**: draw just an arrow from the selected element or group to where it should go.
+- **Remove**: save the red ring immediately; an X is optional.
+- **Highlight**: save the ring immediately.
 
-Use a mouse, pen, or touch. Circles fit the drag box. Choose a step in the top prompt to redraw it; another drag replaces that step's mark. Switching mark type keeps the circle and clears the second mark. **Save** becomes available when all required steps are complete.
+Use a mouse, pen, or touch. Tap the selected-element step (**Circle something else**, or the compact **✓ Circle** button on phones) to draw a manual circle instead of the automatic rings. Circles fit the drag box. Choose a step in the top prompt to redraw it; another drag replaces that step's mark. A replacement circle clears the arrow/X, matching manual redraw. Switching mark type keeps the rings or circle and clears the second mark. **Save** becomes available when all required steps are complete. Older notes containing only a manual circle still render.
 
 **Save** creates a normal numbered feedback note with a Move, Remove, or Highlight action. Your comment is kept; if empty, a plain request is generated. For Move, the arrowhead identifies a nearby page element and relative position (for example, just left of the search field). **Copy all** and auto-copy include this context and selectors in the Markdown report, not on screen. No screenshots are captured or attached.
 

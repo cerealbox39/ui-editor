@@ -9,10 +9,18 @@
   const currentActionName = name => renamedUIActions.get(name) ?? name;
   const actionWithDetail = name => uiActionDetails.has(name) ? `${name} (${uiActionDetails.get(name)})` : name;
   const actionsStorageKey = 'pin-overlay:quick-actions';
+  const themeStorageKey = 'pin-overlay:theme';
+  const systemTheme = matchMedia('(prefers-color-scheme: dark)');
+  let themeChoice = null;
+  try {
+    const stored = localStorage.getItem(themeStorageKey);
+    if (stored === 'light' || stored === 'dark') themeChoice = stored;
+  } catch (_) { /* Storage may be unavailable. */ }
   const pageURL = location.href;
   const touch = matchMedia('(pointer: coarse)').matches, narrow = matchMedia('(max-width: 600px)');
   const storageKey = `pin-overlay:${pageURL}`;
   let pins = [], active = false, autoCopy = true, target = null, editing = null;
+  let selection = [], selectionChanged = false, selectionMode = false;
   const drafts = new Map();
   let uiActions = defaultUIActions, actionDraft = null;
   const annotationMarks = ['Move', 'Remove', 'Highlight'];
@@ -45,6 +53,7 @@
       const migratedComment = [comment, ...additions].filter(Boolean).join('\n');
       if (legacyFields.some(key => Object.hasOwn(pin, key)) || !issueTypes.includes(oldType) || typeof pin.comment !== 'string' || renamedUIActions.has(pin.uiAction)) migrateStorage = true;
       const migrated = { ...pin, issueType, uiAction: issueType === 'UI/UX' && typeof pin.uiAction === 'string' ? currentActionName(pin.uiAction) : '', comment: migratedComment };
+      if (!Array.isArray(migrated.additionalElements) || !migrated.additionalElements.every(validElement)) delete migrated.additionalElements;
       if (!validAnnotation(migrated.annotation)) delete migrated.annotation;
       else if (!validDestination(migrated.annotation.destination)) delete migrated.annotation.destination;
       legacyFields.forEach(key => { delete migrated[key]; });
@@ -85,10 +94,28 @@
   const savedMarkers = new Map();
   let markerFrame = null;
   const outline = make('div', 'outline'); outline.hidden = true;
-  const outlineLabel = make('div', 'label', '', outline);
+  const selectionLayer = make('div', 'selection-layer');
   const panel = make('section', 'panel'); panel.hidden = true; panel.setAttribute('aria-label', 'Pinned app feedback');
-  make('h2', 'heading', 'App feedback', panel);
-  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Point to any UI, data value, or feature. Esc exits.', panel);
+  const panelHeader = make('div', 'panel-header', undefined, panel);
+  make('h2', 'heading', 'App feedback', panelHeader);
+  const themeToggle = button('', panelHeader, () => {
+    themeChoice = root.dataset.pinTheme === 'dark' ? 'light' : 'dark';
+    try { localStorage.setItem(themeStorageKey, themeChoice); } catch (_) { /* Storage may be unavailable. */ }
+    refreshTheme();
+  });
+  themeToggle.classList.add('pin-theme-toggle');
+  function refreshTheme() {
+    const dark = (themeChoice || (systemTheme.matches ? 'dark' : 'light')) === 'dark';
+    root.dataset.pinTheme = dark ? 'dark' : 'light';
+    themeToggle.textContent = dark ? 'Light mode' : 'Dark mode';
+    themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
+    buttonIcon(themeToggle, dark
+      ? 'M10.8 8a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0ZM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1m7.8 7.8L13 13M3 13l1.1-1.1m7.8-7.8L13 3'
+      : 'M13.6 9.1A5.8 5.8 0 0 1 6.9 2.4a5.8 5.8 0 1 0 6.7 6.7Z');
+  }
+  refreshTheme();
+  systemTheme.addEventListener('change', () => { if (!themeChoice) refreshTheme(); });
+  make('p', 'hint', touch ? 'Tap any UI, data value, or feature.' : 'Use Shift to select multiple items and Esc to exit.', panel);
   const controls = make('div', 'controls', undefined, panel);
   button('Copy all', controls, copyAll);
   button('Clear all', controls, () => { pins = []; drafts.clear(); closeEditor(); changed(); });
@@ -97,10 +124,27 @@
   autoLabel.append(document.createTextNode(' Auto-copy (overwrites clipboard)'));
   const list = make('ol', 'list', undefined, panel);
   const status = make('p', 'status', 'Ready', panel); status.setAttribute('role', 'status');
-  auto.addEventListener('change', () => { autoCopy = auto.checked; status.textContent = autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'; });
+  const storageWarnings = new Map();
+  function setStatus(text, { alert = false } = {}) {
+    if (storageWarnings.size) {
+      text = [...storageWarnings.values()].join(' ');
+      alert = true;
+    }
+    status.textContent = text;
+    status.classList.toggle('pin-status-alert', alert);
+  }
+  function setStorageWarning(key, text) {
+    const previous = storageWarnings.has(key);
+    if (text) storageWarnings.set(key, text);
+    else storageWarnings.delete(key);
+    if (text || previous) setStatus('Ready');
+  }
+  auto.addEventListener('change', () => { autoCopy = auto.checked; setStatus(autoCopy ? 'Auto-copy on — changes overwrite clipboard' : 'Auto-copy off — use Copy all'); });
 
   const editor = make('form', 'editor'); editor.hidden = true; editor.setAttribute('aria-label', 'Edit feedback');
   const title = make('h2', 'heading', 'New feedback', editor);
+  const selectionHint = make('p', 'selection-hint', 'Hold Shift and click to select more', editor);
+  selectionHint.hidden = touch;
   make('span', 'field-label', 'Issue type', editor);
   const typeChips = make('div', 'chips', undefined, editor);
   let issueType = 'UI/UX', uiAction = '';
@@ -135,7 +179,7 @@
   const circleStep = button('', annotationPrompt, () => { annotationStep = 0; updateAnnotationPrompt(); });
   circleStep.classList.add('pin-annotation-step', 'pin-circle-step'); circleStep.title = 'Drag to draw or redraw the circle';
   const stepDivider = make('span', 'step-divider', '·', annotationPrompt);
-  const detailStep = button('', annotationPrompt, () => { if (annotationDraft?.circle) { annotationStep = 1; updateAnnotationPrompt(); } });
+  const detailStep = button('', annotationPrompt, () => { if (annotationBoxes(annotationDraft).length) { annotationStep = 1; updateAnnotationPrompt(); } });
   detailStep.classList.add('pin-annotation-step'); detailStep.title = 'Drag to draw or redraw the second mark';
   const annotationControls = make('div', 'annotation-controls', undefined, annotationPrompt);
   button('Cancel', annotationControls, cancelAnnotation);
@@ -272,8 +316,9 @@
     try {
       if (names.length === defaultUIActions.length && names.every((name, index) => name === defaultUIActions[index])) localStorage.removeItem(actionsStorageKey);
       else localStorage.setItem(actionsStorageKey, JSON.stringify(names));
+      setStorageWarning(actionsStorageKey, null);
     }
-    catch (_) { status.textContent = 'Storage unavailable — quick actions won’t survive a reload'; }
+    catch (_) { setStorageWarning(actionsStorageKey, 'Storage unavailable — quick actions won’t survive a reload'); }
     returnToFeedback();
   }
 
@@ -284,9 +329,14 @@
     saveFeedback(values);
   });
   function saveFeedback(values, element) {
+    if (selection.length && (!editing || selectionChanged)) values.additionalElements = selection.slice(1).map(describe);
     if (editing) {
       const pin = pins.find(pin => pin.id === editing);
       if (pin) {
+        if (selectionChanged) {
+          values.element = describe(target);
+          if (!values.annotation) delete pin.annotation;
+        }
         Object.assign(pin, values);
         if (pin.annotation && pin.uiAction !== pin.annotation.mark) delete pin.annotation;
       }
@@ -342,8 +392,17 @@
   }
   function validAnnotation(annotation) {
     if (!annotation || !annotationMarks.includes(annotation.mark)) return false;
-    const { circle, stroke } = annotation;
-    return validBox(circle) && (annotation.mark === 'Highlight' || validStroke(stroke, annotation.mark));
+    const { stroke, rings } = annotation;
+    if (rings !== undefined && (!Array.isArray(rings) || !rings.length || !rings.every(box => validBox(box) && Number.isFinite(box.radius) && box.radius >= 0))) return false;
+    return annotationBoxes(annotation).length > 0 && (annotation.mark !== 'Move' || validStroke(stroke, annotation.mark)) &&
+      (stroke == null || validStroke(stroke, annotation.mark));
+  }
+  function validElement(element) {
+    return element && typeof element.selector === 'string' && typeof element.tag === 'string' && Array.isArray(element.classes) && element.classes.every(name => typeof name === 'string');
+  }
+  function annotationBoxes(annotation) {
+    if (!annotation) return [];
+    return validBox(annotation.circle) ? [annotation.circle] : Array.isArray(annotation.rings) ? annotation.rings.filter(validBox) : [];
   }
   function validDestination(destination) {
     const element = destination?.element;
@@ -358,40 +417,48 @@
   function beginAnnotation() {
     if (!target?.isConnected || actionDraft) return;
     annotationSource = describe(target);
-    annotationDraft = { mark: 'Move', circle: null, stroke: null };
-    annotationStep = 0;
+    const rings = selection.filter(element => element.isConnected).map(element => {
+      const rect = element.getBoundingClientRect(), padding = 6;
+      return { x: rect.left + scrollX - padding, y: rect.top + scrollY - padding, width: rect.width + padding * 2, height: rect.height + padding * 2,
+        radius: (parseFloat(getComputedStyle(element).borderRadius) || 0) + padding };
+    });
+    annotationDraft = { mark: 'Move', rings, circle: null, stroke: null };
+    annotationStep = 1;
     intentChips.querySelector('.pin-annotate').setAttribute('aria-pressed', 'true');
     editor.hidden = true; panel.hidden = true; drawSurface.hidden = false; annotationPrompt.hidden = false;
-    root.classList.add('pin-annotating'); resetHover();
+    root.classList.add('pin-annotating'); resetHover(); selectionLayer.replaceChildren();
     updateAnnotationPrompt(); renderAnnotations(); circleStep.focus();
   }
   function chooseMark(mark) {
     if (!annotationDraft || annotationDrag) return;
     if (mark !== annotationDraft.mark) {
       annotationDraft.mark = mark; annotationDraft.stroke = null; delete annotationDraft.destination;
-      annotationStep = annotationDraft.circle && mark !== 'Highlight' ? 1 : 0;
+      annotationStep = annotationBoxes(annotationDraft).length ? 1 : 0;
     }
     updateAnnotationPrompt(); renderAnnotations();
   }
   function updateAnnotationPrompt() {
     if (!annotationDraft) return;
-    const { mark, circle, stroke } = annotationDraft, single = mark === 'Highlight';
+    const { mark, circle, stroke, rings } = annotationDraft, single = mark === 'Highlight', hasBox = annotationBoxes(annotationDraft).length > 0;
     markButtons.forEach((control, index) => { control.setAttribute('aria-pressed', String(annotationMarks[index] === mark)); control.disabled = Boolean(annotationDrag); });
-    circleStep.textContent = narrow.matches && annotationStep === 1 ? '✓ Circle' : `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
-    const direction = mark === 'Remove' ? 'Draw an X over it' : narrow.matches ? 'Draw an arrow' : 'Draw an arrow to where it should go';
+    const selectedName = selection.length > 1 ? `${selection.length} elements` : short(target?.getAttribute('aria-label') || target?.textContent) || annotationSource.tag;
+    circleStep.textContent = narrow.matches && annotationStep === 1 ? '✓ Circle' : rings?.length && annotationStep === 1 ? `✓ ${selectedName} selected` : `${circle ? '✓ ' : ''}${single ? '' : '1 '}Circle the element`;
+    circleStep.title = 'Circle something else'; circleStep.setAttribute('aria-label', 'Circle something else');
+    const direction = mark === 'Remove' ? 'Draw an X (optional)' : narrow.matches ? 'Draw an arrow' : 'Draw an arrow to where it should go';
     detailStep.textContent = `${stroke ? '✓ ' : ''}2 ${direction}`;
     circleStep.setAttribute('aria-current', annotationStep === 0 ? 'step' : 'false');
     detailStep.setAttribute('aria-current', annotationStep === 1 ? 'step' : 'false');
-    circleStep.disabled = Boolean(annotationDrag); detailStep.disabled = !circle || Boolean(annotationDrag);
+    circleStep.disabled = Boolean(annotationDrag); detailStep.disabled = !hasBox || Boolean(annotationDrag);
     detailStep.hidden = single; stepDivider.hidden = single;
     annotationSave.disabled = Boolean(annotationDrag) || !validAnnotation(annotationDraft);
     positionAnnotationPrompt();
   }
   function positionAnnotationPrompt() {
     annotationPrompt.classList.remove('pin-annotation-bottom');
-    if (!annotationDraft || !narrow.matches || !annotationDraft.circle) return;
-    const { circle, stroke } = annotationDraft;
-    const points = [{ x: circle.x, y: circle.y }, { x: circle.x + circle.width, y: circle.y + circle.height }];
+    if (!annotationDraft || !narrow.matches) return;
+    const { stroke } = annotationDraft;
+    const points = annotationBoxes(annotationDraft).flatMap(box => [{ x: box.x, y: box.y }, { x: box.x + box.width, y: box.y + box.height }]);
+    if (!points.length) return;
     if (stroke) points.push(stroke.start, stroke.end);
     const bounds = {
       left: Math.min(...points.map(point => point.x)) - scrollX - 12,
@@ -413,15 +480,15 @@
   function cancelAnnotation() {
     if (!annotationDraft) return;
     clearAnnotationMode(); refreshFields(); editor.hidden = false;
-    placeEditor(target?.getBoundingClientRect()); showOutline(target); comment.control.focus();
+    placeEditor(selectionBounds()); showOutline(target); comment.control.focus();
   }
   function saveAnnotation() {
     if (annotationDrag || !validAnnotation(annotationDraft)) return;
     const annotation = { ...annotationDraft }, source = annotationSource;
     if (annotation.mark === 'Move') annotation.destination = moveDestination(annotation.stroke.end) || annotation.destination;
-    const name = source.displayedValue || source.tag;
-    const generated = annotation.mark === 'Move' ? `Move “${name}” ${annotation.destination ? `next to ${annotation.destination.label}` : 'to the marked spot'}` :
-      annotation.mark === 'Remove' ? `Remove “${name}”` : `Look at “${name}”`;
+    const name = selection.length > 1 ? `${selection.length} elements` : `“${source.displayedValue || source.tag}”`;
+    const generated = annotation.mark === 'Move' ? `Move ${name} ${annotation.destination ? `next to ${annotation.destination.label}` : 'to the marked spot'}` :
+      annotation.mark === 'Remove' ? `Remove ${name}` : `Look at ${name}`;
     const values = { issueType, uiAction: annotation.mark, comment: comment.control.value.trim() ? comment.control.value : generated, annotation };
     clearAnnotationMode(); saveFeedback(values, source);
   }
@@ -452,6 +519,7 @@
     annotationDraft[step === 0 ? 'circle' : 'stroke'] = valid ? shape : previous;
     annotationDrag = null; drawSurface.releasePointerCapture(id);
     if (valid && step === 0) {
+      delete annotationDraft.rings;
       annotationDraft.stroke = null; delete annotationDraft.destination;
       annotationStep = annotationDraft.mark === 'Highlight' ? 0 : 1;
     } else if (valid && annotationDraft.mark === 'Move') annotationDraft.destination = moveDestination(end);
@@ -522,23 +590,28 @@
   }
   function drawAnnotation(annotation, index, pin) {
     const group = svgElement('g', { class: `pin-annotation${annotation.mark === 'Remove' ? ' pin-annotation-remove' : ''}`, ...(pin ? { 'data-note-id': pin.id } : { 'data-draft': '' }) }, annotationCanvas);
-    const circle = annotation.circle;
+    const boxes = annotationBoxes(annotation), circle = boxes[0];
     if (!circle) return;
     const cx = circle.x + circle.width / 2, cy = circle.y + circle.height / 2;
-    svgElement('ellipse', { cx, cy, rx: circle.width / 2, ry: circle.height / 2, class: 'pin-annotation-circle' }, group);
+    if (validBox(annotation.circle)) svgElement('ellipse', { cx, cy, rx: circle.width / 2, ry: circle.height / 2, class: 'pin-annotation-circle' }, group);
+    else boxes.forEach(box => svgElement('rect', { x: box.x, y: box.y, width: box.width, height: box.height, rx: box.radius, class: 'pin-annotation-circle' }, group));
     const path = annotationPath(annotation);
     if (path) {
       svgElement('path', { d: path, class: 'pin-annotation-halo' }, group);
       svgElement('path', { d: path, class: 'pin-annotation-stroke' }, group);
     }
-    const dot = svgElement('g', { class: 'pin-annotation-dot', transform: `translate(${cx - circle.width * .36} ${cy - circle.height * .36})` }, group);
-    svgElement('circle', { r: 10 }, dot);
-    svgElement('text', { 'text-anchor': 'middle', dy: '.35em' }, dot).textContent = String(index + 1);
-    if (pin) {
-      dot.setAttribute('role', 'button'); dot.setAttribute('tabindex', '0'); dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
-      dot.addEventListener('click', () => highlightCard(pin));
-      dot.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); highlightCard(pin); } });
-    }
+    boxes.forEach((box, number) => {
+      const x = validBox(annotation.circle) ? cx - circle.width * .36 : box.x + 16;
+      const y = validBox(annotation.circle) ? cy - circle.height * .36 : box.y;
+      const dot = svgElement('g', { class: 'pin-annotation-dot', transform: `translate(${x} ${y})` }, group);
+      svgElement('circle', { r: 10 }, dot);
+      svgElement('text', { 'text-anchor': 'middle', dy: '.35em' }, dot).textContent = String(!pin && boxes.length > 1 ? number + 1 : index + 1);
+      if (pin) {
+        dot.setAttribute('role', 'button'); dot.setAttribute('tabindex', '0'); dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
+        dot.addEventListener('click', () => highlightCard(pin));
+        dot.addEventListener('keydown', event => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); event.stopPropagation(); highlightCard(pin); } });
+      }
+    });
   }
   function positionAnnotations() {
     annotationLayer.setAttribute('viewBox', `0 0 ${innerWidth} ${innerHeight}`);
@@ -577,6 +650,9 @@
       const kind = pin.issueType === 'UI/UX' && intent ? `${pin.issueType} / ${inline(actionWithDetail(intent))}` : pin.issueType;
       lines.push('', `### ${index + 1}. [${kind}] ${inline(elementLabel(element))}`, `- Selector: \`${element.selector.replace(/`/g, '\\`')}\` (${element.selectorConfidence} confidence)`);
       if (present(element.displayedValue)) lines.push(`- Text/value: ${inline(element.displayedValue)}`);
+      (pin.additionalElements || []).forEach((additional, number) => {
+        lines.push(`- Element ${number + 2}: ${inline(annotationElement(additional))}`, `  - Selector: \`${additional.selector.replace(/`/g, '\\`')}\` (${additional.selectorConfidence} confidence)`);
+      });
       if (present(pin.comment)) lines.push(`- Request: ${inline(pin.comment)}`);
       if (pin.annotation) lines.push(`- ${annotationReport(pin.annotation, element)}`);
       if (['Data', 'New Feature'].includes(pin.issueType) && element.tableContext) lines.push(`- Row: ${inline(Object.entries(element.tableContext).map(([key, value]) => `${key}: ${value}`).join('; '))}`);
@@ -594,10 +670,13 @@
     const output = markdown(), total = pins.length, sequence = ++copySequence;
     const write = () => navigator.clipboard?.writeText ? navigator.clipboard.writeText(output) : Promise.reject(new Error('Clipboard API unavailable'));
     const promise = write();
-    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) status.textContent = `Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`; }).catch(error => { if (sequence === copySequence) status.textContent = 'Clipboard update failed — use Copy all'; console.warn('App feedback overlay: clipboard update failed', error); });
+    copyQueue = copyQueue.catch(() => {}).then(() => promise).then(() => { if (sequence === copySequence) setStatus(`Clipboard updated — ${total} ${total === 1 ? 'item' : 'items'} ready to paste`); }).catch(error => { if (sequence === copySequence) setStatus('Clipboard update failed — use Copy all', { alert: true }); console.warn('App feedback overlay: clipboard update failed', error); });
   }
   function changed() {
-    try { if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey); } catch (_) { status.textContent = 'Storage unavailable — feedback remains in memory'; }
+    try {
+      if (pins.length) localStorage.setItem(storageKey, JSON.stringify(pins)); else localStorage.removeItem(storageKey);
+      setStorageWarning(storageKey, null);
+    } catch (_) { setStorageWarning(storageKey, 'Storage unavailable — feedback remains in memory'); }
     render(); if (autoCopy) copyAll();
   }
   const listItems = new Map();
@@ -650,7 +729,25 @@
     if (!pins.length && !list.firstChild) make('li', 'empty', 'No feedback yet', list);
     renderSavedMarkers();
   }
-  function closeEditor() { if (actionDraft) closeActionSettings(); editor.hidden = true; target = null; editing = null; resetHover(); }
+  function closeEditor() { if (actionDraft) closeActionSettings(); editor.hidden = true; target = null; editing = null; selection = []; selectionLayer.replaceChildren(); resetHover(); }
+  function selectionBounds() {
+    const boxes = selection.filter(element => element.isConnected).map(element => element.getBoundingClientRect());
+    if (!boxes.length) return target?.getBoundingClientRect();
+    const left = Math.min(...boxes.map(box => box.left)), right = Math.max(...boxes.map(box => box.right));
+    const top = Math.min(...boxes.map(box => box.top)), bottom = Math.max(...boxes.map(box => box.bottom));
+    return { left, right, top, bottom, width: right - left, height: bottom - top };
+  }
+  function renderSelection() {
+    selectionLayer.replaceChildren();
+    if (editor.hidden || annotationDraft) return;
+    selection.forEach((element, index) => {
+      const rect = element.getBoundingClientRect();
+      if (!rect.width || !rect.height || rect.bottom <= 0 || rect.top >= innerHeight) return;
+      const box = make('div', 'selection', undefined, selectionLayer);
+      Object.assign(box.style, { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` });
+      if (!touch) make('span', 'selection-number', String(index + 1), box);
+    });
+  }
   function placeEditor(rect) {
     const edge = 12, viewportGap = 8;
     editor.classList.toggle('pin-editor-top', narrow.matches && Boolean(rect) && rect.top + rect.height / 2 > innerHeight / 2);
@@ -678,7 +775,7 @@
     let placement = placements.filter(option => {
       const box = { left: option.left, top: option.top, right: option.left + width, bottom: option.top + height };
       return option.fit && box.left >= viewport.left && box.top >= viewport.top && box.right <= viewport.right && box.bottom <= viewport.bottom && !obstacles.some(obstacle => intersects(box, obstacle)) && (!rect || !intersects(box, expand(rect)));
-    }).sort((left, right) => right.room - left.room)[0];
+    }).sort((left, right) => (selectionMode ? Number(right.top === rect?.bottom + edge) - Number(left.top === rect?.bottom + edge) : 0) || right.room - left.room)[0];
     if (!placement) {
       const freeRegions = blocked => blocked.reduce((regions, obstacle) => regions.flatMap(region => {
         if (!intersects(region, obstacle)) return [region];
@@ -721,13 +818,15 @@
     if (!active) return;
     pins.forEach((pin, index) => {
       if (pin.annotation) return;
-      const element = savedPinTarget(pin.element.selector);
-      if (!element) return;
-      if (!savedMarkers.has(element)) savedMarkers.set(element, make('div', 'marker-group', undefined, markerLayer));
-      const dot = make('button', 'marker-dot', String(index + 1), savedMarkers.get(element));
-      dot.type = 'button';
-      dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
-      dot.addEventListener('click', () => highlightCard(pin));
+      [pin.element, ...(pin.additionalElements || [])].forEach(description => {
+        const element = savedPinTarget(description.selector);
+        if (!element) return;
+        if (!savedMarkers.has(element)) savedMarkers.set(element, make('div', 'marker-group', undefined, markerLayer));
+        const dot = make('button', 'marker-dot', String(index + 1), savedMarkers.get(element));
+        dot.type = 'button';
+        dot.setAttribute('aria-label', `Show feedback note ${index + 1}`);
+        dot.addEventListener('click', () => highlightCard(pin));
+      });
     });
     positionSavedMarkers();
   }
@@ -746,19 +845,23 @@
     if (!savedMarkers.size || markerFrame !== null) return;
     markerFrame = requestAnimationFrame(() => { markerFrame = null; positionSavedMarkers(); });
   }
-  function openEditor(element, pin) {
+  function openEditor(element, pin, extend = false) {
     if (actionDraft) return;
     resetHover();
     clearCardHighlight();
     const key = pin?.id || element, values = drafts.get(key) || pin;
     drafts.delete(key);
     target = element; editing = pin?.id || null; issueType = issueTypes.includes(values?.issueType) ? values.issueType : 'UI/UX'; uiAction = issueType === 'UI/UX' ? values?.uiAction || '' : '';
+    selection = values?.selection?.filter(item => item.isConnected) || (pin ? [element, ...(pin.additionalElements || []).map(item => savedPinTarget(item.selector))].filter(Boolean) : [element].filter(Boolean));
+    target = selection[0] || element;
+    selectionChanged = Boolean(values?.selectionChanged);
+    selectionMode = extend || selection.length > 1;
     comment.control.value = values?.comment || ''; remove.hidden = !pin;
-    title.textContent = pin ? 'Edit feedback' : 'New feedback'; renderIntentChips(); refreshFields(); editor.hidden = false;
-    placeEditor(element?.getBoundingClientRect()); if (!touch) comment.control.focus();
+    title.textContent = selection.length > 1 ? `${selection.length} elements selected` : pin ? 'Edit feedback' : 'New feedback'; renderIntentChips(); refreshFields(); editor.hidden = false;
+    placeEditor(selectionBounds()); if (!touch) comment.control.focus();
     showOutline(element);
   }
-  let hoverFrame = null, hoverTarget = null, outlineText = null, outlineStyle = {};
+  let hoverFrame = null, hoverTarget = null, outlineStyle = {};
   function resetHover() {
     if (hoverFrame !== null) cancelAnimationFrame(hoverFrame);
     hoverFrame = null; hoverTarget = null;
@@ -770,20 +873,14 @@
     if (active && editor.hidden && !annotationDraft) showOutline(element);
   }
   function showOutline(element) {
+    if (!editor.hidden) { outline.hidden = true; renderSelection(); return; }
     const rect = element?.isConnected ? element.getBoundingClientRect() : null;
     if (!rect?.width || !rect.height || rect.right <= 0 || rect.bottom <= 0 || rect.left >= document.documentElement.clientWidth || rect.top >= document.documentElement.clientHeight) { resetHover(); return; }
     const style = { left: `${rect.left}px`, top: `${rect.top}px`, width: `${rect.width}px`, height: `${rect.height}px` };
-    const label = `${element.localName}${element.classList[0] ? '.' + element.classList[0] : ' ' + short(element.textContent)}`;
     outline.classList.toggle('pin-outline-selected', Boolean(editing));
     if (outline.hidden) outline.hidden = false;
     for (const key of Object.keys(style)) { if (style[key] !== outlineStyle[key]) outline.style[key] = style[key]; }
-    if (label !== outlineText) outlineLabel.textContent = label;
-    const labelRect = outlineLabel.getBoundingClientRect();
-    outlineLabel.style.left = `${Math.max(0, Math.min(rect.left, document.documentElement.clientWidth - labelRect.width))}px`;
-    const above = rect.top - labelRect.height - 4, below = rect.bottom + 4;
-    const top = above >= 0 ? above : below + labelRect.height <= document.documentElement.clientHeight ? below : Math.max(0, rect.top);
-    outlineLabel.style.top = `${top}px`;
-    outlineStyle = style; outlineText = label;
+    outlineStyle = style;
   }
   function hover(event) {
     if (!active || !editor.hidden || annotationDraft) return;
@@ -791,10 +888,22 @@
     hoverTarget = event.target;
     if (hoverFrame === null) hoverFrame = requestAnimationFrame(renderHover);
   }
-  function intercept(event) { if (!active || annotationDraft || root.contains(event.target)) return; event.preventDefault(); event.stopImmediatePropagation(); if (event.type === 'click') openEditor(event.target); }
+  function intercept(event) {
+    if (!active || annotationDraft || root.contains(event.target)) return;
+    event.preventDefault(); event.stopImmediatePropagation();
+    if (event.type !== 'click') return;
+    if (!touch && event.shiftKey && !editor.hidden && !actionDraft) {
+      const index = selection.indexOf(event.target);
+      if (index >= 0) selection.splice(index, 1); else selection.push(event.target);
+      if (!selection.length) { closeEditor(); return; }
+      target = selection[0]; selectionChanged = true; selectionMode = true;
+      title.textContent = selection.length > 1 ? `${selection.length} elements selected` : editing ? 'Edit feedback' : 'New feedback';
+      placeEditor(selectionBounds()); showOutline(target);
+    } else openEditor(event.target, undefined, !touch && event.shiftKey);
+  }
   function setActive(value) {
     if (annotationDraft) {
-      cancelAnnotation(); drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value });
+      cancelAnnotation(); drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value, selection: selection.slice(), selectionChanged });
     }
     active = value; panel.hidden = !value; toggle.setAttribute('aria-pressed', String(value)); toggle.textContent = value ? '◎ Exit inspect' : '◎ App feedback'; closeEditor();
     clearCardHighlight();
@@ -808,7 +917,7 @@
       event.preventDefault();
       if (annotationDraft) cancelAnnotation();
       else if (actionDraft) returnToFeedback();
-      else if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value }); closeEditor(); }
+      else if (!editor.hidden) { drafts.set(editing || target, { issueType, uiAction, comment: comment.control.value, selection: selection.slice(), selectionChanged }); closeEditor(); }
       else setActive(false);
     }
   });
@@ -830,7 +939,7 @@
   window.addEventListener('resize', () => {
     if (annotationDraft) updateAnnotationPrompt();
     resetHover(); scheduleMarkerPosition(); positionAnnotations();
-    if (!editor.hidden) { placeEditor(target?.getBoundingClientRect()); showOutline(target); }
+    if (!editor.hidden) { placeEditor(selectionBounds()); showOutline(target); }
   });
   render();
 })();
