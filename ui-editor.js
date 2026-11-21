@@ -106,7 +106,6 @@
     const dark = (themeChoice || (systemTheme.matches ? 'dark' : 'light')) === 'dark';
     root.dataset.pinTheme = dark ? 'dark' : 'light';
     themeToggle.textContent = dark ? 'Light mode' : 'Dark mode';
-    themeToggle.setAttribute('aria-pressed', String(dark));
     themeToggle.setAttribute('aria-label', dark ? 'Switch to light mode' : 'Switch to dark mode');
     buttonIcon(themeToggle, dark
       ? 'M10.8 8a2.8 2.8 0 1 1-5.6 0 2.8 2.8 0 0 1 5.6 0ZM8 1v1.5M8 13.5V15M1 8h1.5M13.5 8H15M3 3l1.1 1.1m7.8 7.8L13 13M3 13l1.1-1.1m7.8-7.8L13 3'

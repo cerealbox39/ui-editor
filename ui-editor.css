@@ -49,10 +49,9 @@
 #pin-root .pin-toggle:focus-visible { box-shadow: 0 0 0 4px var(--pin-ring), 0 6px 24px rgba(0, 113, 227, .3); }
 #pin-root .pin-button.pin-theme-toggle {
   display: inline-flex; align-items: center; flex-shrink: 0; gap: 5px; padding: 6px 10px;
-  border: 0; background: #e5e7eb; color: var(--pin-text); font-size: 12px; font-weight: 500;
+  border: 0; background: var(--pin-tool-fill); color: var(--pin-text); font-size: 12px; font-weight: 500;
 }
 #pin-root .pin-button.pin-theme-toggle:hover { background: #d9dce1; }
-#pin-root[data-pin-theme="dark"] .pin-button.pin-theme-toggle { background: #363b43; }
 #pin-root[data-pin-theme="dark"] .pin-button.pin-theme-toggle:hover { background: #424853; }
 #pin-root .pin-outline { position: fixed; z-index: 2147483644; outline: 2px solid var(--pin-accent); border-radius: 4px; pointer-events: none; background: rgba(0, 113, 227, .05); }
 #pin-root .pin-outline-selected { z-index: 2147483647; outline-color: var(--pin-accent); background: transparent; box-shadow: 0 0 12px var(--pin-ring); }
