@@ -183,6 +183,11 @@
 #pin-root .pin-annotation-prompt .pin-annotation-step { background: transparent; color: var(--pin-text); padding-inline: 2px; }
 #pin-root .pin-annotation-prompt .pin-annotation-step[aria-current="step"] { color: #0062c4; }
 #pin-root .pin-annotation-controls { display: flex; gap: 6px; margin-left: 4px; }
+#pin-root .pin-selection-layer { pointer-events: none; }
+#pin-root .pin-selection { position: fixed; pointer-events: none; z-index: 2147483644; outline: 2px solid #0071e3; border-radius: 6px; }
+#pin-root .pin-selection-number { position: absolute; top: -11px; left: 8px; width: 22px; height: 22px; display: grid; place-items: center; border-radius: 50%; background: #0071e3; color: white; font-size: 11px; font-weight: 600; }
+#pin-root .pin-selection-hint { margin: -4px 0 16px; font-size: 12px; color: var(--pin-secondary); }
+#pin-root rect.pin-annotation-circle { fill: none; }
 #pin-root .pin-annotation-prompt .pin-button:disabled { cursor: default; }
 #pin-root .pin-annotation-prompt .pin-button-primary:disabled { background: var(--pin-tool-fill); color: var(--pin-secondary); }
 #pin-root.pin-annotating .pin-annotation-dot { pointer-events: none; }
